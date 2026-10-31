@@ -213,11 +213,156 @@ odoo/
 
 | Phase | Status | Description |
 |---|---|---|
-| Phase 1 | ✅ In Progress | Foundation infrastructure |
-| Phase 2 | ⏳ Pending | Authentication & security |
-| Phase 3 | ⏳ Pending | Subscription data models |
-| Phase 4 | ⏳ Pending | Billing & invoicing |
-| Phase 5 | ⏳ Pending | Reporting & analytics |
+| Phase 1 | ✅ Completed | Foundation infrastructure & Odoo environment |
+| Phase 2 | ✅ Completed | Authentication, RBAC & security architecture |
+| Phase 3 | ✅ Completed | Product catalog & multi-variant management |
+| Phase 4 | ✅ Completed | Multi-frequency subscription plan engine |
+| Phase 5 | ✅ Completed | Quotation & sales order workflow management |
+| Phase 6 | ✅ Completed | Subscription lifecycle state machine |
+| Phase 7 | ✅ Completed | Tax calculation & multi-tier discount engine |
+| Phase 8 | ✅ Completed | Automated recurring billing & invoice engine |
+| Phase 9 | ✅ Completed | Zero-loss payment reconciliation & ledger allocations |
+| Phase 10 | ✅ Completed | Customer self-service portal backend & APIs |
+| Phase 11 | ✅ Completed | Financial analytics engine, MRR & cohort metrics |
+| Phase 12 | ✅ Completed | Premium SaaS frontend, visual system & portal UI |
+
+---
+
+## Deployment & Infrastructure
+
+### Planned Production Architecture
+
+The planned production infrastructure for **Brightloop Subscription Intelligence** employs a multi-cloud hybrid topology engineered for global edge delivery, containerized backend processing, serverless database scaling, and durable filestore persistence:
+
+```
+[ User Browser (Desktop & Mobile) ]
+                 |
+                 v
+       +-------------------+
+       |    Vercel Edge    |  <-- Global Edge CDN, Static Assets, Edge Rewrites
+       +-------------------+
+                 |
+                 | (Reverse Proxy /api/v1/*)
+                 v
+       +-------------------+
+       |  Render Web Svc   |  <-- Odoo 20 Community (Docker Runtime, Ohio US East)
+       +-------------------+
+           |           |
+           |           +-----> [ Render Persistent Disk: /var/lib/odoo (Filestore) ]
+           v
+       +-------------------+
+       |  Neon PostgreSQL  |  <-- Serverless PostgreSQL 16 (SSL/TLS Required)
+       +-------------------+
+```
+
+- **Frontend**: **Vercel**
+  - Edge CDN delivery for public marketing pages, authentication views, platform dashboard console, and customer self-service portal.
+  - Edge Rewrites (`vercel.json`) proxying `/api/*` requests to the Render backend, preserving first-party session cookie mechanics without cross-origin friction.
+  - *Note: Deployment setup in progress; standalone frontend separation and asset bundling must be verified before production cutover.*
+- **Backend**: **Odoo 20 Community on Render**
+  - Fully managed containerized Web Service running Odoo 20 Community Edition.
+  - Region: Ohio (US East / `us-east-ohio`).
+  - Reverse proxy configuration enabled (`proxy_mode = True`).
+- **Database**: **Neon PostgreSQL**
+  - Serverless PostgreSQL 16 instance.
+  - Compute auto-scaling and connection pooling (PgBouncer).
+  - Strict TLS/SSL encryption enforced (`sslmode=require`).
+- **Persistent Storage**: **Render Persistent Disk**
+  - Dedicated persistent volume mounted at `/var/lib/odoo` to retain Odoo's binary filestore, generated tax receipts, customer PDF invoices, and session caches across container deployments and restarts.
+
+---
+
+### Current Deployment Status
+
+| Infrastructure Component | Target Platform | Current Status | Notes |
+|:---|:---|:---:|:---|
+| **Neon Project** | Neon Cloud | ✅ Created | Project: `brightloop-production` |
+| **PostgreSQL Branch** | Neon Cloud | ✅ Created | Production branch: `production` |
+| **Render Repository** | Render | ✅ Connected | Repository: `amitkushwaha2311/odoo-flux-hackathon-2026` |
+| **Render Region** | Render | ✅ Selected | Region: Ohio (US East / `us-east-ohio`) |
+| **Vercel Frontend** | Vercel | ⏳ Pending | Deployment setup in progress; asset separation verification required |
+| **Data & Filestore Migration** | Neon / Render | ⏳ Pending | Initial schema seeding and filestore synchronization pending |
+
+> ⚠️ **Important**: Deployment is actively in progress. Production cutover, live DNS configuration, and traffic routing will occur after frontend separation and database migrations are fully validated.
+
+---
+
+### Setup Prerequisites
+
+Before initiating production deployments, ensure the following accounts and credentials are provisioned:
+
+1. **Neon Cloud Account**:
+   - Access to project `brightloop-production` with branch `production`.
+   - Connection parameters retrieved from the Neon Console (Host, Database Name, User, Password, Port `5432`, `sslmode=require`).
+2. **Render Cloud Account**:
+   - Authorized GitHub integration to repository `amitkushwaha2311/odoo-flux-hackathon-2026`.
+   - Permissions to provision a Docker Web Service and attach a Render Persistent Disk in `Ohio (US East)`.
+3. **Vercel Account**:
+   - Vercel CLI or Vercel Dashboard connected to the repository or target deployment project.
+4. **Environment Secret Management**:
+   - All production secrets must be managed strictly via platform environment managers (Render Environment Settings, Vercel Project Variables).
+   - No database credentials, connection strings, or master passwords may be committed to version control.
+
+---
+
+### Deployment Steps & Execution Runbook
+
+#### Step 1: Database Provisioning (Neon PostgreSQL)
+1. Verify the `brightloop-production` project and `production` branch in the Neon Console.
+2. Ensure compute endpoint autoscaling limits and connection pooling are enabled.
+3. Verify TLS/SSL enforcement (`sslmode=require`).
+
+#### Step 2: Backend Web Service Deployment (Render)
+1. In the Render Dashboard, create a **New +** → **Web Service**.
+2. Connect repository: `amitkushwaha2311/odoo-flux-hackathon-2026` (branch: `main`).
+3. Configure service parameters:
+   - **Runtime**: `Docker`
+   - **Region**: `Ohio (US East)`
+   - **Instance Type**: Minimum Starter tier (1 CPU, 2 GB RAM).
+4. Attach a **Render Persistent Disk**:
+   - **Mount Path**: `/var/lib/odoo`
+   - **Size**: 10 GB minimum.
+5. Set production Environment Variables (via Render Dashboard):
+   - `HOST=0.0.0.0`
+   - `PORT=10000`
+   - `DB_HOST=<neon-production-host>.neon.tech`
+   - `DB_PORT=5432`
+   - `DB_USER=<neon-db-user>`
+   - `DB_PASSWORD=<neon-db-password>`
+   - `DB_NAME=brightloop_production`
+   - `DB_SSLMODE=require`
+   - `ODOO_ADMIN_PASSWORD=<strong-master-password>`
+6. Configure health check endpoint: `/api/v1/analytics/kpis` or `/`.
+
+#### Step 3: Frontend Separation & Edge Deployment (Vercel)
+1. Verify standalone static asset bundle (`frontend/` or static public assets).
+2. Configure `vercel.json` with Edge Rewrites to route all API calls directly to the Render backend:
+   ```json
+   {
+     "rewrites": [
+       {
+         "source": "/api/:path*",
+         "destination": "https://<render-service-slug>.onrender.com/api/:path*"
+       }
+     ]
+   }
+   ```
+3. Deploy to Vercel via Git integration or Vercel CLI:
+   ```bash
+   vercel --prod
+   ```
+4. Verify HTTP 200 responses, static asset delivery, and that API calls to `/api/v1/auth/me` proxy seamlessly to Render.
+
+#### Step 4: Database Initialization & Module Verification
+1. Run initial database schema seeding and addon installation on the Render container:
+   ```bash
+   odoo -d <neon-db-name> --db_host=<neon-host> --db_user=<neon-user> -i brightloop_core --stop-after-init
+   ```
+2. Run automated test suite against the production candidate database to confirm model integrity:
+   ```bash
+   odoo -d <neon-db-name> --test-enable --test-tags :brightloop_core --stop-after-init
+   ```
+3. Perform end-to-end user verification across customer registration, login, subscription lifecycle, and billing workflows.
 
 ---
 
