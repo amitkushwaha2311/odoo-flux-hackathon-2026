@@ -60,6 +60,18 @@ The billing calculation engine (`calculate_next_billing_date` and `calculate_bil
 | **Yearly (Leap day)** | 1 | `2024-02-29` | `2025-02-28` | 2025 is non-leap year (adjusted to Feb 28) |
 | **Quarterly (Monthly × 3)** | 3 | `2026-01-31` | `2026-04-30` | 3 calendar months forward (April end) |
 
+### Billing Anchor Policy for Repeated Month-End Dates
+When monthly or yearly billing is evaluated across consecutive recurring cycles:
+- **Naive Incremental Addition (Date Drift):** If cycle 2 is calculated by adding 1 month to cycle 1's clamped date (`2026-02-28 + 1 month`), it yields `2026-03-28`. The billing day permanently drifts from the 31st to the 28th.
+- **Anchored Calculation Policy (Standard):** Subscriptions in Phase 6 will store a persistent `billing_anchor_date` (or `billing_day_of_month = 31`). The billing date for cycle $k$ is computed from the original anchor:
+  $$\text{next\_billing\_date} = \text{anchor\_date} + \text{relativedelta}(\text{months} = k \times \text{interval\_count})$$
+  Under this policy:
+  - Cycle 1 ($k=1$): `2026-01-31` + 1 month $\to$ `2026-02-28` (clamped)
+  - Cycle 2 ($k=2$): `2026-01-31` + 2 months $\to$ `2026-03-31` (restored to 31st)
+  - Cycle 3 ($k=3$): `2026-01-31` + 3 months $\to$ `2026-04-30` (clamped to 30th)
+  - Cycle 4 ($k=4$): `2026-01-31` + 4 months $\to$ `2026-05-31` (restored to 31st)
+This completely prevents billing date drift across recurring subscription lifetimes.
+
 ---
 
 ## Plan Pricing & Product Integration
@@ -148,6 +160,30 @@ Plan pricing integrates with the Phase 3 product & variant engine:
 | **Read Subscription Plans (`brightloop.subscription.plan`)** | ❌ Forbidden (AccessError) | ✅ Read-Only | ✅ Full Access |
 | **Create / Modify Subscription Plans** | ❌ Forbidden | ❌ Forbidden (AccessError) | ✅ Permitted |
 | **Archive / Reactivate Subscription Plans** | ❌ Forbidden | ❌ Forbidden (AccessError) | ✅ Permitted |
+
+### Customer Plan Discovery Architecture (Future Customer-Facing Workflows)
+To maintain security isolation while enabling customers to discover active, eligible plans in future sales/portal workflows:
+- **Direct ORM Isolation Preserved:** Portal customers remain blocked from querying `brightloop.subscription.plan` directly via standard ORM methods, preventing field exploration, draft plan leaks, or internal parameter tampering.
+- **Service-Based Discovery (`get_published_plans`):** In future customer workflows (Phase 5/portal), plans will be surfaced via a controlled service endpoint or portal controller executing with elevated backend privileges (`sudo()`) while applying strict mandatory business filters:
+  1. `active = True`
+  2. `availability_start_date <= today <= availability_end_date` (or unset)
+  3. `product_id.active = True`
+  4. Exposing only public fields (`id`, `name`, `description`, `list_price`, `currency_id`, `billing_interval`, `billing_interval_count`, `minimum_quantity`).
+  5. Excluding internal company accounting configurations and audit links.
+
+---
+
+## Project Roadmap Alignment
+
+The Brightloop project follows an agreed modular roadmap:
+- **Phase 1: Foundation & Odoo Setup** *(Completed)* — Dockerized Odoo 20 + PostgreSQL 16, `brightloop_core` base addon, `brightloop.base` mixin.
+- **Phase 2: Authentication & Security** *(Completed)* — Role architecture (Admin, Staff, Customer), customer registration, password policy, secure reset tokens, audit trail.
+- **Phase 3: Product & Variant Management** *(Completed)* — Product catalog reuse (`product.template`/`product.product`), validation constraints, variant pricing surcharge engine (₹2,000 + ₹560 = ₹2,560).
+- **Phase 4: Subscription Plan Engine** *(Completed)* — Reusable plan model, calendar-exact billing engine, variant integration, availability windows, lifecycle policies, RBAC.
+- **Phase 5: Quotations & Sales Engine** *(Next)* — Quotation generation, customer quote presentation, staff quotation workflows, conversion to sales orders.
+- **Phase 6: Subscription Lifecycle & State Machine** — Live subscription contracts (`brightloop.subscription`), active/paused/closed/renewed state transitions, automated closure on expiry, billing anchor day management.
+- **Phase 7: Recurring Invoicing & Billing** — Recurring invoice generation, prorated calculations, tax and discount applications.
+- **Phase 8: Payment Processing & Collections** — Payment gateway integration, tokenized renewals, retry logic, dunning management.
 
 ---
 

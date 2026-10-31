@@ -419,11 +419,14 @@ class BrightloopSubscriptionPlan(models.Model):
     # =========================================================================
 
     @api.model
-    def calculate_billing_date(self, billing_interval: str, interval_count: int = 1, start_date=None) -> date:
+    def calculate_billing_date(self, billing_interval: str, interval_count: int = 1, start_date=None, anchor_date=None) -> date:
         """
         Pure reusable calendar-aware date calculation utility.
         Preserves calendar month-end semantics, leap-year calculations,
         and rejects non-positive interval counts.
+
+        Supports optional anchor_date to prevent date drift on repeated
+        month-end cycles (e.g., Jan 31 -> Feb 28 -> Mar 31).
 
         Examples:
           Daily:   2026-10-31 + 1 day   -> 2026-11-01
@@ -434,6 +437,7 @@ class BrightloopSubscriptionPlan(models.Model):
         :param billing_interval: 'daily', 'weekly', 'monthly', 'yearly'
         :param interval_count: Strictly positive integer multiplier (default 1)
         :param start_date: date, datetime, or ISO string. Defaults to today.
+        :param anchor_date: optional original subscription anchor date for day-of-month restoration.
         :return: date object
         """
         if interval_count is None or interval_count <= 0:
@@ -460,9 +464,24 @@ class BrightloopSubscriptionPlan(models.Model):
         else:
             raise ValidationError(f'Invalid billing interval: {billing_interval}')
 
-        return start_date + delta
+        target_date = start_date + delta
 
-    def calculate_next_billing_date(self, start_date=None, interval_count=None) -> date:
+        # If anchor_date is provided, restore original anchor day if month allows
+        if anchor_date and billing_interval in ('monthly', 'yearly'):
+            if isinstance(anchor_date, datetime):
+                anchor_date = anchor_date.date()
+            elif isinstance(anchor_date, str):
+                anchor_date = fields.Date.from_string(anchor_date)
+
+            if isinstance(anchor_date, date):
+                import calendar
+                max_days = calendar.monthrange(target_date.year, target_date.month)[1]
+                target_day = min(anchor_date.day, max_days)
+                target_date = target_date.replace(day=target_day)
+
+        return target_date
+
+    def calculate_next_billing_date(self, start_date=None, interval_count=None, anchor_date=None) -> date:
         """
         Calculate the next billing date for this plan instance.
         """
@@ -472,6 +491,7 @@ class BrightloopSubscriptionPlan(models.Model):
             billing_interval=self.billing_interval,
             interval_count=count,
             start_date=start_date,
+            anchor_date=anchor_date,
         )
 
     # =========================================================================

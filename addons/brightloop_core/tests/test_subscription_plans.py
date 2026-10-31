@@ -625,3 +625,28 @@ class TestSubscriptionPlans(TransactionCase):
         after = self.SecurityAudit.search_count([('event_type', '=', 'plan_archived')])
         self.assertGreater(after, before)
 
+    def test_42_billing_anchor_date_restoration(self):
+        """
+        Billing Anchor Policy:
+        - Naive month addition from clamped date (Feb 28) yields Mar 28.
+        - With anchor_date=Jan 31, Mar restores to Mar 31.
+        """
+        plan = self.SubscriptionPlan.create({
+            'name': 'Anchor Test Plan',
+            'billing_interval': 'monthly',
+            'billing_interval_count': 1,
+        })
+        anchor = date(2026, 1, 31)
+        # Cycle 1: Jan 31 -> Feb 28
+        cycle1 = plan.calculate_next_billing_date(start_date=anchor)
+        self.assertEqual(cycle1, date(2026, 2, 28))
+
+        # Cycle 2 without anchor (naive drift): Feb 28 -> Mar 28
+        cycle2_unanchored = plan.calculate_next_billing_date(start_date=cycle1)
+        self.assertEqual(cycle2_unanchored, date(2026, 3, 28))
+
+        # Cycle 2 with anchor_date: Feb 28 -> Mar 31 (anchor day restored!)
+        cycle2_anchored = plan.calculate_next_billing_date(start_date=cycle1, anchor_date=anchor)
+        self.assertEqual(cycle2_anchored, date(2026, 3, 31))
+
+
