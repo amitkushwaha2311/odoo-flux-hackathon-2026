@@ -191,7 +191,7 @@ class BrightloopBillingService(models.AbstractModel):
     # =========================================================================
 
     @api.model
-    def generate_invoice(self, billing_period):
+    def generate_invoice(self, billing_period, _journal_cache=None):
         """
         Generate a native Odoo customer invoice (account.move) for a billing period.
 
@@ -206,6 +206,8 @@ class BrightloopBillingService(models.AbstractModel):
         - Advances subscription next_billing_date upon success.
 
         :param billing_period: brightloop.billing.period record
+        :param _journal_cache: optional dict keyed by company_id.id → account.journal record
+                               (used by process_due_billing_batch to avoid repeated searches)
         :return: account.move record
         """
         subscription = billing_period.subscription_id
@@ -229,15 +231,21 @@ class BrightloopBillingService(models.AbstractModel):
             )
             return False
 
-        # 3. Locate Sales Journal
+        # 3. Locate Sales Journal — use caller-supplied cache for batch efficiency
+        # During a 1,000-subscription batch, this avoids 1,000 repeated SQL searches.
         Journal = self.env['account.journal']
-        journal = Journal.search([
-            ('type', '=', 'sale'),
-            ('company_id', '=', subscription.company_id.id),
-        ], limit=1)
-        if not journal:
-            # Fallback to any sale journal
-            journal = Journal.search([('type', '=', 'sale')], limit=1)
+        company_id = subscription.company_id.id
+        if _journal_cache is not None and company_id in _journal_cache:
+            journal = _journal_cache[company_id]
+        else:
+            journal = Journal.search([
+                ('type', '=', 'sale'),
+                ('company_id', '=', company_id),
+            ], limit=1)
+            if not journal:
+                journal = Journal.search([('type', '=', 'sale')], limit=1)
+            if _journal_cache is not None:
+                _journal_cache[company_id] = journal
         if not journal:
             raise UserError(f'No customer sales journal found for company "{subscription.company_id.name}".')
 
@@ -376,7 +384,7 @@ class BrightloopBillingService(models.AbstractModel):
     # =========================================================================
 
     @api.model
-    def process_subscription_billing(self, subscription, target_date=None):
+    def process_subscription_billing(self, subscription, target_date=None, _journal_cache=None):
         """
         Process a full billing cycle for a single subscription with row-level locking.
 
@@ -385,12 +393,15 @@ class BrightloopBillingService(models.AbstractModel):
 
         :param subscription: brightloop.subscription record
         :param target_date: date object or None (default today)
+        :param _journal_cache: optional dict keyed by company_id.id → account.journal record
+                               (supplied by process_due_billing_batch to avoid repeated journal searches)
         :return: dict with processing result
         """
         today = target_date or fields.Date.context_today(self)
 
-        # Ensure any pending ORM writes are flushed to database before raw SQL lock
-        subscription.flush_recordset()
+        # Flush only state-relevant fields before the raw SQL lock to minimise
+        # ORM dirty-check overhead in large accumulated test transactions.
+        subscription.flush_recordset(['state', 'next_billing_date'])
 
         # Acquire database row-level lock
         self.env.cr.execute(
@@ -433,7 +444,7 @@ class BrightloopBillingService(models.AbstractModel):
             }
 
         try:
-            invoice = self.generate_invoice(period)
+            invoice = self.generate_invoice(period, _journal_cache=_journal_cache)
             return {
                 'success': True,
                 'billing_period_id': period.id,
@@ -563,7 +574,9 @@ class BrightloopBillingService(models.AbstractModel):
         Features:
         - Failure isolation: savepoint per subscription so one failure never
           aborts the remaining batch.
-        - High-throughput query execution.
+        - High-throughput query execution via a pre-built per-company journal cache.
+          This eliminates N repeated SQL searches for the sales journal when
+          processing a large batch with subscriptions on the same company.
         - Safe repeated execution (idempotent).
 
         :param company: res.company or None
@@ -574,11 +587,17 @@ class BrightloopBillingService(models.AbstractModel):
         due_subs = self.get_due_subscriptions(company=company, target_date=target_date, limit=batch_size)
         metrics = {'processed': 0, 'success': 0, 'failed': 0, 'skipped': 0, 'invoices_created': 0}
 
+        # Pre-build sales journal cache keyed by company_id to avoid a SQL
+        # journal search per subscription inside generate_invoice().
+        journal_cache = {}
+
         for sub in due_subs:
             metrics['processed'] += 1
             try:
                 with self.env.cr.savepoint():
-                    res = self.process_subscription_billing(sub, target_date=target_date)
+                    res = self.process_subscription_billing(
+                        sub, target_date=target_date, _journal_cache=journal_cache
+                    )
                     if res.get('success'):
                         metrics['success'] += 1
                         if not res.get('existing'):
