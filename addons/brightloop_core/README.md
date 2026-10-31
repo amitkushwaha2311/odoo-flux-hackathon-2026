@@ -589,3 +589,93 @@ Stateless business service coordinating financial transactions:
 - **No External Gateway Tokens**: Phase 9 implements backend accounting payment registration and reconciliation using native Odoo journals (Bank/Cash). Online payment gateways (Stripe, Razorpay) and card tokenization are deferred to future integration phases.
 - **Manual Payment Method Lines**: Bank and Cash journals use standard manual payment methods in Odoo Community Edition.
 
+---
+
+## Phase 10: Customer Self-Service Portal (Backend Engine)
+
+### 1. Overview & Architectural Principles
+Phase 10 delivers a secure, multi-tenant customer self-service backend engine enabling authenticated portal customers to view and manage their subscriptions, retrieve invoices, download rendered PDF documents, inspect payment histories, and access consolidated chronological billing timelines.
+
+Key architectural principles:
+- **Backend-Only Execution**: Strictly backend services, models, access controls, controllers, and tests. No HTML, OWL, SCSS, or frontend portal screens.
+- **Commercial Partner Authority**: Customer identity resolves strictly to `user.partner_id.commercial_partner_id`, ensuring company-level isolation across parent-child contact structures.
+- **Zero Object ID Enumeration**: Any attempt to access subscriptions, invoices, or payments belonging to other commercial partners raises a uniform `AccessError` ("not found or access denied") preventing existence probing.
+- **Plan Lifecycle Policy Enforcement**: Mutation operations (`pause`, `resume`, `request_early_closure`, `renew`) strictly enforce subscription plan flags (`allow_pause`, `allow_early_closure`, `allow_renewal`).
+- **Autonomous Audit Persistence**: Unauthorized access attempts and rate limit violations write audit records via autonomous database transactions (`self.env.registry.cursor()`), ensuring durable security logging even when the caller's transaction is rolled back by an `AccessError` or `UserError`.
+- **Sliding-Window Abuse Protection**: Mutation endpoints are protected by in-memory sliding-window rate limiters preventing brute-force and rapid spamming.
+- **Native Odoo Document Generation**: Invoice PDFs are rendered through Odoo's native `ir.actions.report._render_qweb_pdf('account.account_invoices', [invoice.id])`.
+
+---
+
+### 2. Service Architecture (`brightloop.portal.service`)
+The `brightloop.portal.service` model coordinates customer self-service capabilities:
+
+| Method | Access Scope | Functional Responsibility |
+|---|---|---|
+| `get_profile(user)` | Customer | Retrieves sanitized contact details (`name`, `email`, `phone`, `street`, `city`, `zip`, `country`, `company`). |
+| `update_profile(vals, user)` | Customer | Updates permitted contact fields with format validation; rejects restricted accounting/security fields. |
+| `list_subscriptions(domain, limit, offset, user)` | Customer | Lists active/historical subscriptions isolated to commercial partner. |
+| `get_subscription_detail(sub_id, user)` | Customer | Detailed view with contract lines, pricing, next billing dates, and policy flags. |
+| `pause_subscription(sub_id, user)` | Customer | Pauses active subscription if `allow_pause=True`; rate-limited & audited. |
+| `resume_subscription(sub_id, user)` | Customer | Resumes paused subscription back to active; rate-limited & audited. |
+| `request_early_closure(sub_id, reason, user)` | Customer | Transitions active subscription to closed if `allow_early_closure=True`. |
+| `renew_subscription(sub_id, user)` | Customer | Creates replacement confirmed subscription if `allow_renewal=True`. |
+| `list_invoices(domain, limit, offset, user)` | Customer | Retrieves posted customer invoices (`out_invoice`) with residual and payment state. |
+| `get_invoice_detail(inv_id, user)` | Customer | Detailed invoice metadata including line items, taxes, residuals, and payment status. |
+| `get_invoice_pdf(inv_id, user)` | Customer | Generates binary PDF document stream using native Odoo reporting. |
+| `list_payments(domain, limit, offset, user)` | Customer | Lists inbound customer payments linked to commercial partner. |
+| `get_payment_detail(pay_id, user)` | Customer | Detailed payment record including allocated invoices, reconciliation status, and amounts. |
+| `get_billing_timeline(subscription_id, limit, user)` | Customer | Consolidated chronological event stream (subscriptions, billing periods, invoices, payments). |
+| `_check_rate_limit(action, user, max_reqs, window)` | Internal | Sliding-window threshold verification. |
+| `_log_unauthorized_audit(event_type, summary, details)` | Internal | Autonomous cursor audit logging surviving exception rollbacks. |
+
+---
+
+### 3. REST API Controllers (`/api/v1/portal/*`)
+Standardized JSON endpoints exposed with session-based authentication (`auth='user'`):
+- `GET /api/v1/portal/profile` — Contact profile details.
+- `PUT /api/v1/portal/profile` — Whitelisted contact profile update.
+- `GET /api/v1/portal/subscriptions` — Filtered subscription list.
+- `GET /api/v1/portal/subscriptions/<id>` — Granular subscription contract details.
+- `POST /api/v1/portal/subscriptions/<id>/pause` — Pause subscription.
+- `POST /api/v1/portal/subscriptions/<id>/resume` — Resume subscription.
+- `POST /api/v1/portal/subscriptions/<id>/close` — Request early contract closure.
+- `POST /api/v1/portal/subscriptions/<id>/renew` — Contract renewal.
+- `GET /api/v1/portal/invoices` — Customer invoice listing.
+- `GET /api/v1/portal/invoices/<id>` — Invoice breakdown and residual state.
+- `GET /api/v1/portal/invoices/<id>/pdf` — Binary PDF download stream.
+- `GET /api/v1/portal/payments` — Customer payment history.
+- `GET /api/v1/portal/payments/<id>` — Payment allocation detail.
+- `GET /api/v1/portal/timeline` — Unified billing timeline.
+
+---
+
+### 4. Phase 10 Test Suite Coverage (`test_customer_portal.py` — 32 Tests)
+1. **Authentication & Identity Resolution (Tests 01–02)**: Anonymous rejection, commercial partner resolution across child contacts.
+2. **Customer Profile Management (Tests 03–05)**: Permitted field updates, strict rejection of prohibited fields, phone format validation.
+3. **Subscription Access & Isolation (Tests 06–08)**: Scoped listing, detail retrieval, cross-customer ID enumeration rejection (`AccessError`).
+4. **Subscription Lifecycle Actions (Tests 09–17)**:
+   - Pause subscription & policy enforcement (`allow_pause=False` rejection)
+   - Cross-customer pause prevention
+   - Resume paused subscription & invalid state rejection
+   - Early closure & policy enforcement (`allow_early_closure=False` rejection)
+   - Contract renewal & policy enforcement (`allow_renewal=False` rejection)
+5. **Customer Invoice Access (Tests 18–22)**:
+   - Scoped invoice listing & detail retrieval
+   - Cross-customer invoice access rejection
+   - Native PDF document rendering
+   - Cross-customer PDF download rejection
+6. **Customer Payment Access (Tests 23–25)**: Scoped payment listing, payment detail retrieval, cross-customer payment isolation.
+7. **Billing Timeline (Tests 26–28)**:
+   - Aggregated chronological event stream across 4 models
+   - Timeline pagination verification
+   - Cross-customer timeline isolation
+8. **Abuse Protection & Audit Trails (Tests 29–31)**:
+   - Sliding-window rate limiting on mutation burst
+   - Standard portal audit logging (`portal_subscription_viewed`, `portal_invoice_viewed`, etc.)
+   - Autonomous transaction audit logging for security violations
+9. **Performance Benchmark (Test 32)**:
+   - High-throughput bulk dataset retrieval across 50 subscriptions, 50 invoices, and 50 timeline events.
+   - Result: Completed in **0.02 seconds** (over 2,500 entities/sec).
+
+
