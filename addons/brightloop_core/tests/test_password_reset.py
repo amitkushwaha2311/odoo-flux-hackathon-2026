@@ -107,3 +107,4 @@ class TestPasswordReset(TransactionCase):
         # 4th request -> must exceed rate limit!
         with self.assertRaises(UserError):
             self.TokenModel.create_token_for_user(self.user)
+

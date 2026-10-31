@@ -38,11 +38,13 @@
     # -------------------------------------------------------------------------
     # Dependencies
     # -------------------------------------------------------------------------
-    # Minimal: only what Phase 1 actually uses.
-    # Add dependencies incrementally as features are implemented.
+    # Minimal: only what is actually used.
+    # Phase 1: base, mail
+    # Phase 3: product (Odoo official product and variant engine)
     'depends': [
         'base',          # Core Odoo (res.company, res.partner, res.currency, etc.)
-        'mail',          # Messaging/chatter (needed for future subscription events)
+        'mail',          # Messaging/chatter & notification templates
+        'product',       # Official Odoo product & variant management engine
     ],
 
     # -------------------------------------------------------------------------

@@ -55,3 +55,4 @@ class BrightloopCustomerRecord(models.Model):
         string='Secure Payload',
         help='Customer-specific private data payload.',
     )
+

@@ -56,6 +56,12 @@ class BrightloopSecurityAudit(models.Model):
             ('password_reset_success', 'Password Reset Success'),
             ('unauthorized_access', 'Unauthorized Access Attempt'),
             ('login_failure', 'Login Failure'),
+            ('product_created', 'Product Created'),
+            ('product_updated', 'Product Updated'),
+            ('product_archived', 'Product Archived'),
+            ('product_reactivated', 'Product Reactivated'),
+            ('variant_attributes_modified', 'Variant Attributes Modified'),
+            ('variant_pricing_modified', 'Variant Pricing Modified'),
         ],
         string='Event Type',
         required=True,
@@ -142,3 +148,4 @@ class BrightloopSecurityAudit(models.Model):
         record = self.sudo().create(vals)
         _logger.info('[AUDIT] %s | %s | actor=%s | target=%s', event_type, summary, vals['user_id'], target_user_id)
         return record
+

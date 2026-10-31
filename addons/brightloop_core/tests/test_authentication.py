@@ -58,3 +58,4 @@ class TestAuthentication(TransactionCase):
 
         with self.assertRaises(AccessDenied):
             self.AuthService.authenticate_credentials(self.email, '')
+

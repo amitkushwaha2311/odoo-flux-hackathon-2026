@@ -9,3 +9,4 @@ from . import test_authentication
 from . import test_password_reset
 from . import test_role_security
 from . import test_record_isolation
+from . import test_products
