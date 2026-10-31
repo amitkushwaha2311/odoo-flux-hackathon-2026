@@ -678,4 +678,119 @@ Standardized JSON endpoints exposed with session-based authentication (`auth='us
    - High-throughput bulk dataset retrieval across 50 subscriptions, 50 invoices, and 50 timeline events.
    - Result: Completed in **0.02 seconds** (over 2,500 entities/sec).
 
+---
+
+## Phase 11: Finance Dashboard & Analytics Engine
+
+### 1. Overview & Architectural Principles
+Phase 11 delivers a production-grade, multi-company, multi-currency financial analytics and reporting data layer for Brightloop Subscription Intelligence. It computes high-level financial KPIs, recurring revenue health (MRR/ARR), customer financial metrics (ARPU, LTV), subscription growth and churn dynamics, invoice aging, and time-series financial trends.
+
+Key architectural principles:
+- **Native Accounting as Single Source of Truth**: Evaluates posted customer invoices (`account.move`), payments (`account.payment`), receivable move lines (`account.move.line`), and native reconciliation states.
+- **Zero Parallel Financial Ledgers**: Reuses Odoo's native financial ledgers; never introduces parallel accounting tables or manually maintained financial totals.
+- **Strict Read-Only Enforcement**: All analytics and reporting computations are strictly read-only, making zero modifications to subscriptions, invoices, payments, or ledger states.
+- **Multi-Company & Multi-Currency Native Conversion**: Every endpoint respects allowed company boundaries. Foreign currency amounts are converted to target reporting currencies using Odoo's native exchange rate engine (`from_currency._convert(...)`).
+- **Standard SaaS Calendar Normalization**: Normalizes recurring subscription revenue across daily, weekly, monthly, quarterly, and annual intervals to precise monthly equivalents.
+- **Strict Role-Based Security**: Staff and Admin users have authorized access to internal analytics; Customer portal accounts and anonymous visitors are strictly blocked with 401/403.
+- **Forensic Audit Logging**: Unauthorized analytics attempts are durably logged to `brightloop.security.audit` using autonomous database transactions.
+
+---
+
+### 2. Analytics Service Architecture (`brightloop.analytics.service`)
+The `brightloop.analytics.service` is a stateless `AbstractModel` providing high-performance reporting operations:
+
+| Method | Scope | Description |
+|---|---|---|
+| `get_financial_kpis` | Staff / Admin | High-level overview: Gross/Net Invoiced Revenue, Paid Revenue, Residuals, MRR, ARR, ARPU, Active Subscribers. |
+| `get_mrr_arr_analytics` | Staff / Admin | Monthly and Annual Recurring Revenue normalized across all plan billing frequencies, line quantities, and discounts. |
+| `get_revenue_analytics` | Staff / Admin | Comprehensive revenue breakdown by Subscription Plan, Product Variant, and Customer Commercial Partner. |
+| `get_subscription_growth_metrics` | Staff / Admin | Active/new/renewed/churned counts, Growth Rate %, Renewal Rate %, and Cancellation/Churn Rate %. |
+| `get_customer_financial_metrics` | Staff / Admin | Customer metrics: ARPU, Average Invoiced Lifetime Revenue, Single vs Multi-subscription distribution. (Zero PII). |
+| `get_invoice_aging_report` | Staff / Admin | Standard aging buckets: Not Due, 1–30d, 31–60d, 61–90d, >90d overdue based on due dates and residual balances. |
+| `get_invoice_analytics` | Staff / Admin | Summary of customer invoice volumes, residual balances, and settlement states (paid, partial, unpaid, overdue). |
+| `get_payment_analytics` | Staff / Admin | Inbound customer payment collections, reversed payments, and breakdown across Bank/Cash journals. |
+| `get_plan_performance_analytics` | Staff / Admin | Commercial performance per plan: active contracts, MRR contribution, total revenue generated, renewal and cancellation counts. |
+| `get_product_performance_analytics` | Staff / Admin | Revenue and quantity sold per product variant across invoice lines. |
+| `get_financial_trends` | Staff / Admin | Time-series trend points grouped by day, week, month, quarter, or year. |
+| `compare_periods` | Staff / Admin | Period-over-period comparison with absolute change and percentage variance (handles zero denominators safely). |
+
+---
+
+### 3. MRR & ARR Calculation Rules
+
+Normalized Monthly Recurring Revenue (MRR) evaluates active recurring subscriptions (`state = 'active'`) and computes:
+$$\text{Line Recurring Value} = \text{price\_unit} \times \text{quantity} \times \left(1 - \frac{\text{discount}}{100}\right)$$
+
+Calendar normalization formulas:
+- **Monthly Plan**: $\text{amount} / \text{interval\_count}$
+- **Quarterly Plan** (Monthly count=3): $\text{amount} / 3$
+- **Yearly Plan**: $\text{amount} / (12 \times \text{interval\_count})$
+- **Weekly Plan**: $(\text{amount} / \text{interval\_count}) \times (52 / 12)$ ($\approx 4.3333$ weeks/month)
+- **Daily Plan**: $(\text{amount} / \text{interval\_count}) \times (365 / 12)$ ($\approx 30.4167$ days/month)
+
+**Paused Subscriptions Policy**: In accordance with SaaS accounting best practices, paused subscriptions have recurring billing halted and are excluded from `active_mrr`, tracked separately as `paused_mrr`, and combined in `committed_mrr`. Draft, pending, closed, and cancelled subscriptions contribute 0.0 to MRR.
+
+**Annual Recurring Revenue (ARR)**:
+$$\text{ARR} = \text{Active MRR} \times 12$$
+
+---
+
+### 4. REST API Endpoint Inventory (`/api/v1/analytics/*`)
+Exposed via `addons/brightloop_core/controllers/analytics_api.py` (all endpoints enforce internal Staff/Admin authorization):
+
+- `GET /api/v1/analytics/kpis` — Overall Financial KPIs
+- `GET /api/v1/analytics/revenue` — Revenue Summary and Breakdowns
+- `GET /api/v1/analytics/mrr` — MRR & ARR Breakdown
+- `GET /api/v1/analytics/subscriptions` — Subscription Growth & Churn
+- `GET /api/v1/analytics/customers` — Customer Financial Metrics
+- `GET /api/v1/analytics/aging` — Invoice Aging Buckets
+- `GET /api/v1/analytics/invoices` — Invoice Statistics
+- `GET /api/v1/analytics/payments` — Payment Statistics
+- `GET /api/v1/analytics/plans` — Plan Performance
+- `GET /api/v1/analytics/products` — Product Performance
+- `GET /api/v1/analytics/trends` — Time-Series Trends
+- `GET /api/v1/analytics/compare` — Period Comparison
+
+---
+
+### 5. Phase 11 Test Suite Coverage (`test_finance_analytics.py` — 30 Tests)
+1. **Security & Access Control (Tests 01–04, 29–30)**:
+   - Customer portal users strictly denied access (`AccessError` / 403)
+   - Staff access granted within company
+   - Staff blocked from unauthorized companies
+   - Admin access verified across multi-company scopes
+   - Anonymous visitors strictly denied access
+   - Unauthorized attempts emit `analytics_unauthorized_access` audit event
+2. **Revenue Analytics (Tests 05–07)**:
+   - Invoiced revenue includes posted invoices and strictly excludes draft/cancelled
+   - Customer credit notes (`out_refund`) deducted from revenue
+   - Revenue breakdowns by plan and product
+3. **MRR & ARR Normalization (Tests 08–15)**:
+   - Monthly, quarterly, yearly, weekly, and daily plan normalization
+   - Line quantity and percentage discount factoring
+   - Paused subscriptions tracked in `paused_mrr` and excluded from `active_mrr`
+   - Draft and closed subscriptions contribute zero to MRR
+4. **Subscription Growth & Churn (Test 16)**:
+   - Growth rate, renewal rate, and cancellation/churn rate verification
+5. **Invoice Aging Buckets (Tests 17–18)**:
+   - Categorization into Not Due, 1–30d, 31–60d, 61–90d, >90d overdue
+   - Fully settled invoices (residual = 0) strictly excluded
+6. **Invoice & Payment Analytics (Tests 19–20)**:
+   - Invoice totals, residuals, and status counts
+   - Inbound payment collections and Bank/Cash journal distributions
+7. **Customer Financial Analytics (Test 21)**:
+   - ARPU, Average Customer Lifetime Revenue, subscription tier distributions (Zero PII)
+8. **Trends & Period Comparisons (Tests 22–23)**:
+   - Monthly time-series trends
+   - Period-over-period variance with percentage change
+9. **Multi-Currency & Read-Only Integrity (Tests 24–25)**:
+   - Reporting currency conversion accuracy
+   - Zero-mutation verification on accounting and contract states
+10. **Performance Benchmark (Test 26)**:
+    - Core KPI, MRR, and aging computations on bulk dataset execute in under 2.0 seconds (Target met: ~0.08s).
+11. **Parameter Validation (Test 27–28)**:
+    - Malformed date string validation
+    - Plan and product performance aggregation
+
+
 
