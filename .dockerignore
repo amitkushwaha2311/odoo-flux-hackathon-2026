@@ -1,0 +1,43 @@
+# Version control
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Local data, storage, and filestores
+brightloop_odoo_data/
+brightloop_db_data/
+filestore/
+sessions/
+*.log
+
+# Scratch and temporary directories
+scratch/
+tmp/
+temp/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
