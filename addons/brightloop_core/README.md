@@ -261,7 +261,7 @@ docker compose exec -T odoo /entrypoint.sh odoo \
   --stop-after-init
 ```
 
-### Automated Test Coverage (151 Post-Tests / 100% Pass)
+### Automated Test Coverage (199 Post-Tests / 100% Pass)
 - `test_brightloop_base.py` (5 tests): Abstract mixin helpers, company currency, UTC datetime, timezone.
 - `test_registration.py` (8 tests): Valid registration, missing email, duplicate email, case-insensitive duplicate, password length > 8, missing uppercase, missing lowercase, missing special char.
 - `test_authentication.py` (5 tests): Valid login, case-insensitive login, invalid password, unknown email, empty credentials.
@@ -293,3 +293,12 @@ docker compose exec -T odoo /entrypoint.sh odoo \
   - Commercial workflow: Draft -> Sent -> Confirmed (state='sale'), quotation cancellation, cancelled confirmation rejection, confirmed order modification restrictions, Phase 5/6 boundary guarantee ensuring NO premature subscription activation (tests 31–36)
   - Role-based security: Admin full CRUD, Staff operational quote/line management, Customer isolated from other quotes and blocked from modifying/creating internal quotations (tests 37–41)
   - Security audit logging: quotation creation, update, confirmation, cancellation, and template application event generation (tests 42–44)
+- `test_subscriptions.py` (48 tests):
+  - Creation & quotation conversion: confirmed quotation conversion, regular product exclusion, multi-line conversion, customer preservation, draft confirmation guards, duplicate prevention, database uniqueness constraint (tests 01–08)
+  - State machine & action methods: Draft -> Confirmed -> Active <-> Paused -> Closed, direct state modification prevention via write guard (tests 09–16)
+  - Activation & billing schedule: calendar-aware next billing computation, future start dates, repeated activation guard, archived plan/product guards (tests 17–21)
+  - Pause & resume policy: active-to-paused transition, pause duration calculation, billing date extension, unpauseable plan restriction, duplicate pause/resume rejection (tests 22–27)
+  - Closure & automatic closure: early closure enforcement, restriction when allow_early_closure=False, daily cron auto-close execution, idempotency, future end date protection (tests 28–33)
+  - Subscription renewal: renewal lineage tracking, renewal_count increment, start/end date calculation, closed original contract, renewal restriction enforcement (tests 34–38)
+  - Lifecycle audit & history immutability: transition event capture, write/unlink modification block, tamper resistance (tests 39–43)
+  - Role-based access control: Admin full CRUD, Staff operational management, Customer own-record read isolation, Customer blocked from modifying, creating, or calling lifecycle actions (tests 44–48)

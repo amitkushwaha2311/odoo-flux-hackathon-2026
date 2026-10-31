@@ -47,9 +47,26 @@ class SaleOrder(models.Model):
         help='True if quotation has passed its validity date while unconfirmed.',
     )
 
+    subscription_ids = fields.One2many(
+        comodel_name='brightloop.subscription',
+        inverse_name='source_order_id',
+        string='Linked Subscriptions',
+        readonly=True,
+    )
+
+    subscription_count = fields.Integer(
+        string='Subscription Count',
+        compute='_compute_subscription_count',
+    )
+
     # =========================================================================
     # COMPUTE METHODS
     # =========================================================================
+
+    @api.depends('subscription_ids')
+    def _compute_subscription_count(self):
+        for order in self:
+            order.subscription_count = len(order.subscription_ids)
 
     @api.depends('order_line.subscription_plan_id')
     def _compute_is_subscription_quotation(self):
@@ -270,6 +287,74 @@ class SaleOrder(models.Model):
                 details=f'Quotation "{order.name}" sent to customer "{order.partner_id.name}".',
             )
         return result
+
+    def action_create_subscriptions(self):
+        """
+        Transform confirmed subscription quotation into managed subscription records.
+
+        Guarantees:
+          - Only confirmed orders (state == 'sale') can be converted.
+          - Rejects draft, sent, expired, or cancelled orders.
+          - Idempotent: rejects duplicate conversion if a subscription already exists.
+          - Ignores regular one-time products (only converts lines with subscription_plan_id).
+          - Preserves customer, company, currency, products, plans, quantities, pricing.
+          - Transactional: wraps creation cleanly and returns created subscriptions.
+        """
+        created_subs = self.env['brightloop.subscription']
+
+        for order in self:
+            if order.state != 'sale':
+                raise UserError(
+                    f'Cannot create subscription from order "{order.name}" in state "{order.state}". '
+                    'Only confirmed orders can be converted into subscriptions.'
+                )
+
+            if order.subscription_ids:
+                existing_names = ', '.join(order.subscription_ids.mapped('name'))
+                raise UserError(
+                    f'Subscription(s) [{existing_names}] have already been created for order "{order.name}". '
+                    'Duplicate subscription creation is prevented.'
+                )
+
+            sub_lines = order.order_line.filtered(lambda l: bool(l.subscription_plan_id))
+            if not sub_lines:
+                raise UserError(
+                    f'Order "{order.name}" does not contain any subscription plan lines to convert.'
+                )
+
+            # Determine primary plan and interval from first subscription line
+            primary_plan = sub_lines[0].subscription_plan_id
+            order_date = order.date_order.date() if isinstance(order.date_order, datetime) else (order.date_order or fields.Date.today())
+
+            lines_data = []
+            for line in sub_lines:
+                lines_data.append((0, 0, {
+                    'product_id': line.product_id.id,
+                    'subscription_plan_id': line.subscription_plan_id.id,
+                    'quantity': line.product_uom_qty,
+                    'price_unit': line.price_unit,
+                    'discount': line.discount,
+                    'source_order_line_id': line.id,
+                }))
+
+            sub_vals = {
+                'customer_id': order.partner_id.id,
+                'source_order_id': order.id,
+                'company_id': order.company_id.id,
+                'currency_id': order.currency_id.id,
+                'subscription_plan_id': primary_plan.id if primary_plan else False,
+                'billing_interval': primary_plan.billing_interval if primary_plan else 'monthly',
+                'billing_interval_count': primary_plan.billing_interval_count if primary_plan else 1,
+                'start_date': order_date,
+                'billing_anchor_date': order_date,
+                'state': 'draft',
+                'subscription_line_ids': lines_data,
+            }
+
+            sub = self.env['brightloop.subscription'].create(sub_vals)
+            created_subs |= sub
+
+        return created_subs
 
     # =========================================================================
     # QUOTATION TEMPLATE APPLICATION

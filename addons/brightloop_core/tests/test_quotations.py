@@ -632,7 +632,8 @@ class TestQuotations(TransactionCase):
         # There should be no active subscription records linked or created yet
         has_subscription_model = 'brightloop.subscription' in self.env
         if has_subscription_model:
-            sub_count = self.env['brightloop.subscription'].search_count([('order_id', '=', order.id)])
+            order_field = 'source_order_id' if 'source_order_id' in self.env['brightloop.subscription']._fields else 'order_id'
+            sub_count = self.env['brightloop.subscription'].search_count([(order_field, '=', order.id)])
             self.assertEqual(sub_count, 0, 'Phase 5 must NOT activate subscriptions.')
 
     # =========================================================================

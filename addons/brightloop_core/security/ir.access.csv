@@ -20,3 +20,11 @@ access_brightloop_product_pricelist_item_admin,brightloop.product.pricelist.item
 access_brightloop_product_pricelist_item_staff,brightloop.product.pricelist.item.staff,product.pricelist.item,brightloop_core.group_brightloop_staff,r,
 access_brightloop_subscription_plan_admin,brightloop.subscription.plan.admin,brightloop.subscription.plan,brightloop_core.group_brightloop_admin,crud,
 access_brightloop_subscription_plan_staff,brightloop.subscription.plan.staff,brightloop.subscription.plan,brightloop_core.group_brightloop_staff,r,
+access_brightloop_subscription_admin,brightloop.subscription.admin,brightloop.subscription,brightloop_core.group_brightloop_admin,crud,
+access_brightloop_subscription_staff,brightloop.subscription.staff,brightloop.subscription,brightloop_core.group_brightloop_staff,crud,
+access_brightloop_subscription_customer,brightloop.subscription.customer,brightloop.subscription,brightloop_core.group_brightloop_customer,r,"[('partner_id', '=', user.partner_id.id)]"
+access_brightloop_subscription_line_admin,brightloop.subscription.line.admin,brightloop.subscription.line,brightloop_core.group_brightloop_admin,crud,
+access_brightloop_subscription_line_staff,brightloop.subscription.line.staff,brightloop.subscription.line,brightloop_core.group_brightloop_staff,crud,
+access_brightloop_subscription_line_customer,brightloop.subscription.line.customer,brightloop.subscription.line,brightloop_core.group_brightloop_customer,r,"[('subscription_id.partner_id', '=', user.partner_id.id)]"
+access_brightloop_subscription_history_admin,brightloop.subscription.history.admin,brightloop.subscription.history,brightloop_core.group_brightloop_admin,crud,
+access_brightloop_subscription_history_staff,brightloop.subscription.history.staff,brightloop.subscription.history,brightloop_core.group_brightloop_staff,r,

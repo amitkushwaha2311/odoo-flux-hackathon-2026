@@ -56,6 +56,8 @@
         'security/security_groups.xml',
         'security/ir.access.csv',
         'data/mail_template_data.xml',
+        'data/subscription_sequence_data.xml',
+        'data/subscription_cron.xml',
     ],
 
     # -------------------------------------------------------------------------

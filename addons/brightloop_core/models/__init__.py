@@ -16,3 +16,6 @@ from . import subscription_plan
 from . import sale_order
 from . import sale_order_line
 from . import sale_order_template
+from . import subscription_history
+from . import subscription_line
+from . import subscription
