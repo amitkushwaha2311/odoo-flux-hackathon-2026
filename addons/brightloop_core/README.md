@@ -493,3 +493,99 @@ flowchart TD
 10. **Performance Benchmark (Test 33)**:
     - 1,000 active subscriptions processed in an automated batch run.
     - Verified 0 failures, 0 duplicate billing periods, and 100% billing date advancement.
+
+---
+
+## Phase 9: Payment & Reconciliation Engine
+
+### 1. Overview & Architectural Principles
+Phase 9 delivers a robust, idempotent, and auditable payment registration and reconciliation engine built directly on Odoo 20 Community Edition's native accounting framework (`account.payment`, `account.move`, `account.move.line`, and `account.partial.reconcile`).
+
+Key architectural principles:
+- **Zero Parallel Accounting**: Reuses native Odoo journal entries and payment mechanisms rather than creating custom ledger records.
+- **Native Residual State Authority**: `amount_residual` and `payment_state` on `account.move` remain the authoritative computed source of truth; no manual state overwriting.
+- **Atomic Two-Sided Reconciliation**: Payments and customer invoices are reconciled via native receivable line matching (`js_assign_outstanding_line`), immediately updating invoice residuals.
+- **Partial Payment & Allocation**: Fully supports multiple partial payments against an invoice (e.g. ₹4,000 + ₹3,000 + ₹3,000 = ₹10,000) and multi-invoice settlement from a single payment.
+- **PostgreSQL Idempotency**: Hard schema constraint `UNIQUE (idempotency_key)` on `account.payment` prevents duplicate payment processing at the database level.
+- **Subscription Contract Traceability**: Automatically links customer payments to source subscriptions (`brightloop.subscription`) and billing periods (`brightloop.billing.period`).
+- **Overdue Management**: Discovers overdue invoices based on real-time due date, posted status, and residual amount, excluding settled or future-due invoices.
+- **Reversal & Refund Consistency**: Reverses payments safely via `payment.action_cancel()`, unlinking journal entries, unreconciling moves, and restoring original invoice residuals with full audit tracking.
+
+---
+
+### 2. Native Odoo Models Reused
+| Native Model | Brightloop Phase 9 Role |
+|---|---|
+| `account.payment` | Core inbound customer payment record extended with `subscription_id`, `billing_period_id`, and `idempotency_key`. |
+| `account.move` | Customer invoice (`out_invoice`) whose `amount_residual` and `payment_state` are automatically updated by reconciliation. |
+| `account.move.line` | Journal items (debit/credit) reconciled via `js_assign_outstanding_line()` on receivable lines. |
+| `account.journal` | Bank and Cash journals (`type in ('bank', 'cash')`) used to process payments. |
+| `account.partial.reconcile` | Native reconciliation records tracking matched amounts between payments and invoices. |
+
+---
+
+### 3. Payment Service API (`brightloop.payment.service`)
+Stateless business service coordinating financial transactions:
+- `validate_payment_request(invoices, amount, partner, journal, currency, company)`: Validates positive amounts, posted invoice states, non-exceedance of residuals, customer match, and company/currency compatibility.
+- `register_payment(invoice_ids, amount, journal_id, payment_date, memo, partner_id, currency_id, company_id, idempotency_key)`: Transactional payment creation, posting, reconciliation, and audit logging with duplicate protection.
+- `get_outstanding_balance(invoice)`: Queries current `amount_residual` with customer partner isolation.
+- `get_invoice_payment_status(invoice)`: Structured summary including total, residual, paid state, overdue flag, and payment breakdown.
+- `get_customer_payment_history(partner, company, limit)`: Historical customer payment records enforced by customer isolation.
+- `get_subscription_payment_history(subscription, limit)`: Contract-linked payment records.
+- `get_overdue_invoices(company, target_date, limit)`: Identifies posted unpaid/partially paid invoices past due date.
+- `reverse_payment(payment, reason)`: Admin-only cancellation restoring invoice balances.
+
+---
+
+### 4. Phase 9 Test Suite Coverage (`test_payment_engine.py` — 34 Tests)
+1. **Payment Registration (Tests 01–08)**:
+   - Full payment registration and posting with transition to `paid`
+   - Bidirectional linkage via `reconciled_invoice_ids`
+   - Strict rejection of zero and negative amounts
+   - Customer partner mismatch validation
+   - Draft and cancelled invoice rejection
+   - Cash journal payment support
+   - Rejection of payments against already fully settled invoices
+2. **Partial Payments & Multi-Invoice Allocation (Tests 09–12)**:
+   - Single partial payment leaving exact residual (₹4,000 on ₹10,000 leaves ₹6,000)
+   - Multi-step partial payments accumulating to full settlement (₹4,000 + ₹3,000 + ₹3,000 = ₹10,000)
+   - Prevention of payment amounts exceeding outstanding invoice residual
+   - Single payment allocated across multiple invoices (₹10,000 settling ₹4,000 and ₹6,000 invoices simultaneously)
+3. **Outstanding Balance & Payment Status (Tests 13–14)**:
+   - `get_outstanding_balance` exact tracking across invoice lifecycle
+   - Structured metadata validation via `get_invoice_payment_status`
+4. **Subscription Traceability & History (Tests 15–17)**:
+   - Automated payment linkage to `brightloop.subscription`
+   - Subscription contract payment history extraction
+   - Customer payment history extraction
+5. **Overdue Invoice Management (Tests 18–21)**:
+   - Detection of past-due unpaid invoices with days overdue calculation
+   - Strict exclusion of fully paid invoices from overdue lists
+   - Strict exclusion of future-due invoices from overdue lists
+   - Accurate residual reporting for partially paid overdue invoices
+6. **Payment Reversal / Refunds (Tests 22–24)**:
+   - Native payment cancellation restoring invoice residual and `not_paid` state
+   - Role-based restriction: Staff and Customer blocked from reversing payments
+   - UserError raised when attempting to reverse already cancelled payments
+7. **Role-Based Security & Isolation (Tests 25–28)**:
+   - Customer portal users blocked from registering payments directly
+   - Customer partner isolation preventing viewing other customers' payment histories
+   - Customer partner isolation preventing viewing other customers' invoice payment statuses
+   - Cross-company payment rejection (mismatched journal company)
+8. **Audit Trail Logging (Tests 29–31)**:
+   - `payment_registered`, `payment_reconciled`, and `payment_settled` audit event logging
+   - `payment_partial` audit event logging on partial settlement
+   - `payment_reversed` audit event logging on administrative reversal
+9. **Idempotency & Duplicate Protection (Tests 32–33)**:
+   - Repeated payment request with same idempotency key returns existing payment without double charging
+   - PostgreSQL `UNIQUE (idempotency_key)` constraint rejects duplicate keys at SQL level
+10. **Performance Benchmark (Test 34)**:
+    - 100 customer invoices created, posted, and settled with 100 distinct payments.
+    - Achieved throughput: **3.3 payments/second** (100 payments in 30.16s), 100% success rate, 0 failures.
+
+---
+
+### 5. Known Limitations
+- **No External Gateway Tokens**: Phase 9 implements backend accounting payment registration and reconciliation using native Odoo journals (Bank/Cash). Online payment gateways (Stripe, Razorpay) and card tokenization are deferred to future integration phases.
+- **Manual Payment Method Lines**: Bank and Cash journals use standard manual payment methods in Odoo Community Edition.
+

@@ -23,5 +23,7 @@ from . import subscription_history
 from . import subscription_line
 from . import billing_period
 from . import account_move
+from . import account_payment
 from . import billing_service
+from . import payment_service
 from . import subscription
