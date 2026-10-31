@@ -48,9 +48,12 @@
     # -------------------------------------------------------------------------
     # Data files loaded on installation (order matters)
     # -------------------------------------------------------------------------
-    # Phase 1: Infrastructure and abstract mixin only (no concrete models or ACLs yet).
-    # Security rules and initial data will be loaded here in Phase 2.
-    'data': [],
+    # Security groups defined first, then access control rules, then templates.
+    'data': [
+        'security/security_groups.xml',
+        'security/ir.access.csv',
+        'data/mail_template_data.xml',
+    ],
 
     # -------------------------------------------------------------------------
     # Demo data (only loaded when Odoo demo mode is active)

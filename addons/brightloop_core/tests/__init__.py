@@ -2,11 +2,10 @@
 # =============================================================================
 # brightloop_core.tests — Package Init
 # =============================================================================
-# Odoo discovers tests in any module named tests/ with an __init__.py.
-# Import test classes here as they are created.
-#
-# Phase 1: Foundation tests only.
-# =============================================================================
 
 from . import test_brightloop_base
-
+from . import test_registration
+from . import test_authentication
+from . import test_password_reset
+from . import test_role_security
+from . import test_record_isolation

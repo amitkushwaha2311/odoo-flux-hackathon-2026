@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- ================================================================= -->
+        <!-- Brightloop Security Module Category                               -->
+        <!-- ================================================================= -->
+        <record id="module_category_brightloop" model="ir.module.category">
+            <field name="name">Brightloop</field>
+            <field name="description">Brightloop Subscription Intelligence Access Roles</field>
+            <field name="sequence">50</field>
+        </record>
+
+        <!-- ================================================================= -->
+        <!-- Role 1: Customer (External / Portal Access)                       -->
+        <!-- Permissions: Access own account, subscriptions, invoices, payments-->
+        <!-- Restrictions: Cannot view other customers, cannot access admin   -->
+        <!-- ================================================================= -->
+        <record id="group_brightloop_customer" model="res.groups">
+            <field name="name">Brightloop Customer</field>
+            <field name="comment">Customer role for Brightloop Subscription Intelligence. Access restricted to own customer records.</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_portal'))]"/>
+        </record>
+
+        <!-- ================================================================= -->
+        <!-- Role 2: Staff (Internal Operational Access)                       -->
+        <!-- Permissions: View/manage permitted customers, quotes, subs, invs -->
+        <!-- Restrictions: Cannot create staff/admin, cannot alter permissions-->
+        <!-- ================================================================= -->
+        <record id="group_brightloop_staff" model="res.groups">
+            <field name="name">Brightloop Staff</field>
+            <field name="comment">Internal staff role for operational subscription management.</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+        <!-- ================================================================= -->
+        <!-- Role 3: Admin (Full System Administration)                        -->
+        <!-- Permissions: System-wide admin, create staff, config, permissions -->
+        <!-- ================================================================= -->
+        <record id="group_brightloop_admin" model="res.groups">
+            <field name="name">Brightloop Administrator</field>
+            <field name="comment">Administrator role with full Brightloop system, configuration, and staff management access.</field>
+            <field name="implied_ids" eval="[(4, ref('brightloop_core.group_brightloop_staff')), (4, ref('base.group_system'))]"/>
+        </record>
+    </data>
+</odoo>

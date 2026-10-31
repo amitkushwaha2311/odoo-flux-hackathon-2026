@@ -2,9 +2,10 @@
 # =============================================================================
 # brightloop_core.models — Package Init
 # =============================================================================
-# Import all model modules here.
-# Phase 1: Foundation mixin only. Business models added in later phases.
-# =============================================================================
 
 from . import brightloop_base
-
+from . import security_audit
+from . import password_reset_token
+from . import customer_record
+from . import res_users
+from . import auth_service

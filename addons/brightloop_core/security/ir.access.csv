@@ -1,0 +1,6 @@
+id,name,model_id,group_id/id,operation,domain
+access_brightloop_security_audit_admin,brightloop.security.audit.admin,brightloop.security.audit,brightloop_core.group_brightloop_admin,crud,
+access_brightloop_password_reset_token_admin,brightloop.password.reset.token.admin,brightloop.password.reset.token,brightloop_core.group_brightloop_admin,crud,
+access_brightloop_customer_record_admin,brightloop.customer.record.admin,brightloop.customer.record,brightloop_core.group_brightloop_admin,crud,
+access_brightloop_customer_record_staff,brightloop.customer.record.staff,brightloop.customer.record,brightloop_core.group_brightloop_staff,crud,
+access_brightloop_customer_record_customer,brightloop.customer.record.customer,brightloop.customer.record,brightloop_core.group_brightloop_customer,r,"[('partner_id', '=', user.partner_id.id)]"
