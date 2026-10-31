@@ -183,3 +183,4 @@ class BrightloopBase(models.AbstractModel):
     def _bl_module_name(self) -> str:
         """Return the technical name of this module for logging/reference."""
         return 'brightloop_core'
+

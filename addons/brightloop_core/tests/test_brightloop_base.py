@@ -83,3 +83,4 @@ class TestBrightloopBase(TransactionCase):
         abstract = self.env['brightloop.base']
         name = abstract._bl_module_name()
         self.assertEqual(name, 'brightloop_core')
+

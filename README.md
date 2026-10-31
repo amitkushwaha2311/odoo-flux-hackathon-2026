@@ -224,3 +224,4 @@ odoo/
 ## License
 
 Proprietary — Brightloop © 2026. All rights reserved.
+

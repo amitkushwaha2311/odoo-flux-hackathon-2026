@@ -49,3 +49,4 @@ docker compose exec odoo odoo \
   -i brightloop_core \
   --stop-after-init
 ```
+

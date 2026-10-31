@@ -24,3 +24,4 @@ echo "Brightloop is starting. Follow logs with:"
 echo "  docker compose logs -f"
 echo ""
 echo "Odoo will be available at http://localhost:8069 once the health check passes."
+

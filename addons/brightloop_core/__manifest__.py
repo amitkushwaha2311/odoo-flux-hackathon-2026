@@ -48,10 +48,9 @@
     # -------------------------------------------------------------------------
     # Data files loaded on installation (order matters)
     # -------------------------------------------------------------------------
-    'data': [
-        # Security — loaded first so access rules are in place before data
-        'security/ir.model.access.csv',
-    ],
+    # Phase 1: Infrastructure and abstract mixin only (no concrete models or ACLs yet).
+    # Security rules and initial data will be loaded here in Phase 2.
+    'data': [],
 
     # -------------------------------------------------------------------------
     # Demo data (only loaded when Odoo demo mode is active)
@@ -71,3 +70,4 @@
     # False for Phase 1 — no menus yet
     'application': False,
 }
+

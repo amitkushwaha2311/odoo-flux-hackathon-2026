@@ -27,3 +27,4 @@ pytest-cov==6.0.*
 # Miscellaneous
 # ---------------------------------------------------------------------------
 python-dotenv==1.0.*      # Load .env for local scripts
+
