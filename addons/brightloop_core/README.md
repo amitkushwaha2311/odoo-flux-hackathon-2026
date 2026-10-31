@@ -18,6 +18,8 @@
 - `product.template` & `product.product` extensions — Catalog integrity constraints, role-based modification controls, lifecycle protection (archival preferred over deletion), and audit logging.
 - `brightloop.pricing.service` — Deterministic, currency-aware variant price calculation engine preventing double-application of attribute surcharges.
 - `brightloop.subscription.plan` — Reusable subscription plan engine with calendar-aware billing frequencies, variant pricing integration, minimum quantity validation, availability windows, and configurable lifecycle policies.
+- `sale.order` & `sale.order.line` extensions — Backend Quotation & Sales Management Engine integrating product variants, subscription plans, pricing service calculations, quotation validity, commercial lifecycle workflows, and security audit trail.
+- `sale.order.template` & `sale.order.template.line` extensions — Reusable quotation templates supporting subscription plans with automatic order line generation, duplicate prevention, and active product/plan verification.
 
 ---
 
@@ -173,6 +175,53 @@ To maintain security isolation while enabling customers to discover active, elig
 
 ---
 
+## Phase 5: Quotation & Sales Management Engine
+
+### Reused Native Odoo Models
+Brightloop avoids duplicating sales models by extending Odoo's standard commercial infrastructure:
+- `sale.order` — Represents customer quotations and confirmed sales orders. Extended with subscription-awareness (`is_subscription_quotation`), expiration tracking (`is_expired`), date validity constraints, authorized validity extension, and commercial lifecycle workflows.
+- `sale.order.line` — Represents commercial order lines. Extended with `subscription_plan_id`, billing metadata (`billing_interval`, `billing_interval_count`), minimum quantity enforcement, variant surcharge pricing via `brightloop.pricing.service`, and multi-company active product/plan guards.
+- `sale.order.template` & `sale.order.template.line` — Reusable quotation templates with admin-only management, subscription plan propagation, clean line reapplication preventing duplicates, and validation against archived catalog records.
+
+### Commercial Line Architecture & Deterministic Pricing
+Quotations accommodate both one-time products and recurring subscription plans side-by-side:
+- **Variant Pricing Integration:** When a subscription plan referencing a product variant is added to a quotation line, unit price is evaluated through `brightloop.pricing.service.calculate_variant_price()`.
+- **Zero Double-Application Guarantee:** Surcharges (e.g. ₹560 for Odoo Edition) are derived strictly from active attribute combination lines; re-saving or modifying quantity never double-applies extras.
+  - Base Platform Template: ₹2,000.00
+  - Variant Attribute Surcharge: ₹560.00
+  - Unit Price: ₹2,560.00
+  - Quantity 2: ₹5,120.00 subtotal
+- **Billing Frequency Metadata:** Subscription lines store related `billing_interval` and `billing_interval_count` from the linked plan for downstream lifecycle processing.
+- **Integrity Constraints:** Prevents zero/negative quantity, negative unit prices, discount outside 0–100%, archived products, and quantities below plan minimums.
+
+### Commercial Lifecycle & State Machine
+1. **Draft (`state = 'draft'`):** Staff or Admin prepares quotation, links customer, configures lines or applies templates. Customer role is blocked from creating internal quotations.
+2. **Sent (`state = 'sent'`):** Quotation communicated to customer with audit logging.
+3. **Confirmed (`state = 'sale'`):** Staff/Admin confirms quotation:
+   - Rejects confirmation if quotation has expired (`is_expired = True`).
+   - Rejects confirmation if quotation was previously cancelled (`state = 'cancel'`).
+   - Validates that all referenced products and plans remain active and within commercial availability windows.
+   - Converts quotation into a confirmed Sales Order.
+   - **Phase 5/6 Boundary Guarantee:** Quotation confirmation emits a `quotation_confirmed` audit event, but does **not** create or activate `brightloop.subscription` records (Phase 6 ownership).
+4. **Cancelled (`state = 'cancel'`):** Cancelled quotations cannot be modified or confirmed.
+5. **Modification Restrictions:** Confirmed orders cannot have their lines, customer, or currency modified by non-admin staff.
+
+### Quotation Validity & Expiration Policy
+- `validity_date` cannot be earlier than `date_order` (`_check_validity_date`).
+- `is_expired` automatically evaluates to `True` when `validity_date < today` and quotation is unconfirmed (`draft` or `sent`).
+- Expired quotations cannot be confirmed until an authorized Staff or Admin invokes `extend_validity(new_validity_date)`.
+- Validity extension updates the date and emits an immutable `quotation_validity_extended` audit event.
+
+### Quotation Templates
+- Administrators manage templates specifying pre-configured product and subscription plan lines and default validity durations (`number_of_days`).
+- Applying a template (`apply_brightloop_template`):
+  - Validates that template and all referenced items are active.
+  - Clears existing lines (`(5, 0, 0)`) before appending new lines, guaranteeing **zero duplicate line generation** on re-application.
+  - Automatically calculates quotation `validity_date = date_order + number_of_days`.
+  - Propagates terms and conditions (`note`).
+
+---
+
 ## Project Roadmap Alignment
 
 The Brightloop project follows an agreed modular roadmap:
@@ -180,8 +229,8 @@ The Brightloop project follows an agreed modular roadmap:
 - **Phase 2: Authentication & Security** *(Completed)* — Role architecture (Admin, Staff, Customer), customer registration, password policy, secure reset tokens, audit trail.
 - **Phase 3: Product & Variant Management** *(Completed)* — Product catalog reuse (`product.template`/`product.product`), validation constraints, variant pricing surcharge engine (₹2,000 + ₹560 = ₹2,560).
 - **Phase 4: Subscription Plan Engine** *(Completed)* — Reusable plan model, calendar-exact billing engine, variant integration, availability windows, lifecycle policies, RBAC.
-- **Phase 5: Quotations & Sales Engine** *(Next)* — Quotation generation, customer quote presentation, staff quotation workflows, conversion to sales orders.
-- **Phase 6: Subscription Lifecycle & State Machine** — Live subscription contracts (`brightloop.subscription`), active/paused/closed/renewed state transitions, automated closure on expiry, billing anchor day management.
+- **Phase 5: Quotations & Sales Engine** *(Completed)* — Quotation generation, customer quote presentation, staff quotation workflows, conversion to sales orders.
+- **Phase 6: Subscription Lifecycle & State Machine** *(Next)* — Live subscription contracts (`brightloop.subscription`), active/paused/closed/renewed state transitions, automated closure on expiry, billing anchor day management.
 - **Phase 7: Recurring Invoicing & Billing** — Recurring invoice generation, prorated calculations, tax and discount applications.
 - **Phase 8: Payment Processing & Collections** — Payment gateway integration, tokenized renewals, retry logic, dunning management.
 
@@ -194,6 +243,7 @@ The `brightloop.security.audit` model captures all system lifecycle events:
 - Password recovery: `password_reset_request`, `password_reset_success`
 - Product catalog: `product_created`, `product_updated`, `product_archived`, `product_reactivated`, `variant_attributes_modified`, `variant_pricing_modified`
 - Subscription plans: `plan_created`, `plan_updated`, `plan_archived`, `plan_reactivated`, `plan_price_modified`, `plan_interval_modified`, `plan_policy_modified`
+- Quotations & Sales: `quotation_created`, `quotation_updated`, `quotation_sent`, `quotation_confirmed`, `quotation_cancelled`, `quotation_expired`, `quotation_validity_extended`, `quotation_template_applied`, `quotation_line_added`, `quotation_line_updated`, `quotation_line_removed`
 
 ---
 
@@ -211,7 +261,7 @@ docker compose exec -T odoo /entrypoint.sh odoo \
   --stop-after-init
 ```
 
-### Automated Test Coverage (106 Tests, 100% Pass)
+### Automated Test Coverage (151 Post-Tests / 100% Pass)
 - `test_brightloop_base.py` (5 tests): Abstract mixin helpers, company currency, UTC datetime, timezone.
 - `test_registration.py` (8 tests): Valid registration, missing email, duplicate email, case-insensitive duplicate, password length > 8, missing uppercase, missing lowercase, missing special char.
 - `test_authentication.py` (5 tests): Valid login, case-insensitive login, invalid password, unknown email, empty credentials.
@@ -219,7 +269,7 @@ docker compose exec -T odoo /entrypoint.sh odoo \
 - `test_role_security.py` (5 tests): Admin creates staff, staff cannot create staff, customer cannot create staff, privilege escalation blocked, customer cannot access audit logs.
 - `test_record_isolation.py` (5 tests): Customer reads own records, customer cannot read other customer's record by ID, customer cannot modify other customer's record, customer cannot create unauthorized records, staff/admin operational access.
 - `test_products.py` (31 tests): Product creation, constraints, archival, reactivations, attributes, variants, pricing formulas, ₹2,000 + ₹560 = ₹2,560, single application guarantee, RBAC, cost hiding, audit logs.
-- `test_subscription_plans.py` (41 tests):
+- `test_subscription_plans.py` (42 tests):
   - Daily, weekly, monthly, and yearly plan creation
   - Negative price and invalid frequency validation
   - Minimum quantity and interval count validation
@@ -233,4 +283,13 @@ docker compose exec -T odoo /entrypoint.sh odoo \
   - Plan availability windows (start date, end date, expired plans, archived plans, archived products)
   - Lifecycle policy configuration (auto_close, early closure, pause, renewal)
   - Role-based permissions (Admin CRUD, Staff read-only, Customer access denied)
-  - Audit logging for plan creation, updates, price changes, policy modifications, and archival
+  - Audit logging for plan creation, updates, price changes, policy modifications, archival, and anchor date restoration
+- `test_quotations.py` (44 tests):
+  - Quotation creation & customer selection: draft status, customer required, multi-company isolation (tests 01–05)
+  - Product & plan lines: regular products, variants, subscription plans, archived item rejection, minimum quantity, plan-product compatibility (tests 06–12)
+  - Pricing & calculations: base product pricing, variant surcharge ₹2,000 + ₹560 = ₹2,560, quantity multiplication (qty 2 = ₹5,120), currency rounding, zero double surcharge guarantee, billing interval metadata preservation (tests 13–18)
+  - Quotation templates: admin template creation, single-line & multi-line application, duplicate line prevention on reapply, archived product/plan guards (tests 19–24)
+  - Validity & expiration: validity date constraints, automatic expiration evaluation, expired confirmation rejection, authorized validity extension, extension audit trail (tests 25–30)
+  - Commercial workflow: Draft -> Sent -> Confirmed (state='sale'), quotation cancellation, cancelled confirmation rejection, confirmed order modification restrictions, Phase 5/6 boundary guarantee ensuring NO premature subscription activation (tests 31–36)
+  - Role-based security: Admin full CRUD, Staff operational quote/line management, Customer isolated from other quotes and blocked from modifying/creating internal quotations (tests 37–41)
+  - Security audit logging: quotation creation, update, confirmation, cancellation, and template application event generation (tests 42–44)

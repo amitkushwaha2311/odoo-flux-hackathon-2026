@@ -11,3 +11,4 @@ from . import test_role_security
 from . import test_record_isolation
 from . import test_products
 from . import test_subscription_plans
+from . import test_quotations

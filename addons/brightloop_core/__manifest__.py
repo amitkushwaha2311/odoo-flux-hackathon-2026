@@ -45,6 +45,7 @@
         'base',          # Core Odoo (res.company, res.partner, res.currency, etc.)
         'mail',          # Messaging/chatter & notification templates
         'product',       # Official Odoo product & variant management engine
+        'sale_management',  # Official Odoo sales & quotation template engine
     ],
 
     # -------------------------------------------------------------------------

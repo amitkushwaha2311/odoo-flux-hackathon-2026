@@ -29,7 +29,7 @@
         <record id="group_brightloop_staff" model="res.groups">
             <field name="name">Brightloop Staff</field>
             <field name="comment">Internal staff role for operational subscription management.</field>
-            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user')), (4, ref('sales_team.group_sale_salesman_all_leads'))]"/>
         </record>
 
         <!-- ================================================================= -->
@@ -39,7 +39,7 @@
         <record id="group_brightloop_admin" model="res.groups">
             <field name="name">Brightloop Administrator</field>
             <field name="comment">Administrator role with full Brightloop system, configuration, and staff management access.</field>
-            <field name="implied_ids" eval="[(4, ref('brightloop_core.group_brightloop_staff')), (4, ref('base.group_system'))]"/>
+            <field name="implied_ids" eval="[(4, ref('brightloop_core.group_brightloop_staff')), (4, ref('base.group_system')), (4, ref('sales_team.group_sale_manager'))]"/>
         </record>
     </data>
 </odoo>
