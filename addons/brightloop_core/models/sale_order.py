@@ -260,6 +260,11 @@ class SaleOrder(models.Model):
         result = super().action_confirm()
 
         for order in self:
+            # Consume discount usage upon quotation confirmation
+            for line in order.order_line:
+                if hasattr(line, 'discount_id') and line.discount_id:
+                    line.discount_id._increment_usage()
+
             self.env['brightloop.security.audit'].log_event(
                 event_type='quotation_confirmed',
                 summary=f'Quotation confirmed: {order.name}',
@@ -334,6 +339,7 @@ class SaleOrder(models.Model):
                     'quantity': line.product_uom_qty,
                     'price_unit': line.price_unit,
                     'discount': line.discount,
+                    'discount_id': line.discount_id.id if hasattr(line, 'discount_id') and line.discount_id else False,
                     'source_order_line_id': line.id,
                 }))
 

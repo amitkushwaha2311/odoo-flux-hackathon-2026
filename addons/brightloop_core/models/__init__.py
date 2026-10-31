@@ -12,6 +12,9 @@ from . import auth_service
 from . import product_template
 from . import product_product
 from . import pricing_service
+from . import discount
+from . import discount_service
+from . import tax_service
 from . import subscription_plan
 from . import sale_order
 from . import sale_order_line

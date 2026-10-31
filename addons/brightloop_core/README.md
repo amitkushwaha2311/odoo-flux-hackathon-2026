@@ -261,7 +261,7 @@ docker compose exec -T odoo /entrypoint.sh odoo \
   --stop-after-init
 ```
 
-### Automated Test Coverage (199 Post-Tests / 100% Pass)
+### Automated Test Coverage (249 Post-Tests / 100% Pass)
 - `test_brightloop_base.py` (5 tests): Abstract mixin helpers, company currency, UTC datetime, timezone.
 - `test_registration.py` (8 tests): Valid registration, missing email, duplicate email, case-insensitive duplicate, password length > 8, missing uppercase, missing lowercase, missing special char.
 - `test_authentication.py` (5 tests): Valid login, case-insensitive login, invalid password, unknown email, empty credentials.
@@ -302,3 +302,52 @@ docker compose exec -T odoo /entrypoint.sh odoo \
   - Subscription renewal: renewal lineage tracking, renewal_count increment, start/end date calculation, closed original contract, renewal restriction enforcement (tests 34–38)
   - Lifecycle audit & history immutability: transition event capture, write/unlink modification block, tamper resistance (tests 39–43)
   - Role-based access control: Admin full CRUD, Staff operational management, Customer own-record read isolation, Customer blocked from modifying, creating, or calling lifecycle actions (tests 44–48)
+- `test_taxes_and_discounts.py` (50 tests):
+  - Tax configuration: percentage tax, fixed fee, tax activation, archival, company isolation, staff/customer modification restrictions (tests 01–06)
+  - Tax calculation service: tax-exclusive calculation, tax-inclusive calculation, intra-state multiple taxes (CGST+SGST), mixed percentage & fixed fee, quantity multiplier, zero taxes, duplicate tax guard (tests 07–13)
+  - GST support & fiscal positions: inter-state fiscal position mapping (CGST+SGST -> IGST), named GST breakdown, avoidance of simultaneous intra/inter-state tax application (tests 14–16)
+  - Discount model & constraints: percentage discount, fixed discount, negative value rejection, >100% rejection, date range validation, negative threshold validation (tests 17–22)
+  - Discount eligibility engine: active discount, inactive rejection, pre-start date rejection, post-expiry rejection, minimum purchase amount threshold, minimum quantity threshold, product-specific scope, category-specific scope, subscription plan scope, exhausted usage limit rejection (tests 23–32)
+  - Discount calculation: 10% of ₹2,000 = ₹200 (net ₹1,800), fixed ₹250 on ₹2,000 = ₹1,750, maximum discount amount cap (₹400 cap on ₹1,000 raw discount), zero-floor negative protection, quantity multiplier (qty 3 = ₹600 discount), stacking priority rules (tests 33–38)
+  - Quotation integration: discount applied to quotation line, ineligible discount rejection, tax computation on post-discount taxable base (₹1,800 * 18% = ₹324) (tests 39–41)
+  - Subscription integration: subscription line receives discount_id and computes tax automatically, recurring discount revalidation detects future expiry, boundary guarantee: zero account.move invoice generation (tests 42–44)
+  - Usage limits & concurrency protection: atomic usage increment, strict ceiling enforcement at usage limit, quotation confirmation usage consumption (tests 45–47)
+  - Security & audit logging: Admin CRUD vs Staff read-only, Customer access blocked, security audit log generation for discount creation and rejection (tests 48–50)
+
+---
+
+## Phase 7: Tax & Discount Management Engine Architecture
+
+### 1. Reused Native Accounting & Tax Models
+- **`account.tax`**: Official Odoo tax computation engine (percentage, fixed, group taxes, tax inclusion/exclusion, sequence, repartition lines).
+- **`account.tax.group`**: Aggregates related tax lines into reporting groups (e.g. GST, VAT, Cess).
+- **`account.fiscal.position`**: Maps default domestic product taxes to destination taxes (e.g. mapping intra-state CGST 9% + SGST 9% to inter-state IGST 18%).
+- **`account`**: Added as an official dependency in `__manifest__.py`.
+
+### 2. Dedicated Brightloop Discount Model (`brightloop.discount`)
+- **Fields**: `name`, `description`, `active`, `discount_type` (percentage/fixed), `discount_value`, `maximum_discount_amount`, `minimum_purchase_amount`, `minimum_quantity`, `start_date`, `end_date`, `usage_limit`, `usage_count`, `application_scope` (all, product, category, subscription_plan), `product_ids`, `product_category_ids`, `subscription_plan_ids`, `stackable`, `priority`, `company_id`, `currency_id`.
+- **Concurrency & Usage Protection**: Uses raw database-level `SELECT usage_count, usage_limit FROM brightloop_discount WHERE id = %s FOR UPDATE` to atomically lock discount records before incrementing, guaranteeing zero concurrent over-redemption beyond the configured limit.
+- **Consumption Business Rule**: Usage is consumed when an order containing the discount is **confirmed** (`action_confirm()`) or when a recurring subscription invoice is generated. If the enclosing database transaction fails or is rolled back, the usage increment is aborted automatically.
+
+### 3. Reusable Services
+- **`brightloop.tax.service`** (AbstractModel):
+  - Wraps Odoo's native `account.tax.compute_all()` API.
+  - Computes taxes for products, subscription plans, quotation lines (`sale.order.line`), and subscription lines (`brightloop.subscription.line`).
+  - Supports tax-exclusive and tax-inclusive pricing with currency rounding.
+  - Provides `get_gst_breakdown()` helper returning named GST line items.
+- **`brightloop.discount.service`** (AbstractModel):
+  - Deterministic eligibility check (`check_eligibility()`): validates active status, date windows, minimum purchase amount, minimum quantity, scope (product/category/plan), usage limit, and company/currency compatibility.
+  - Multi-discount application (`apply_discounts()`): enforces priority order, applies non-stackable discount first, chains stackable discounts on remaining balances, enforces maximum caps, and floors line subtotals at zero.
+  - Recurring discount validator (`validate_recurring_discount()`): re-evaluates discount eligibility for future billing cycles before Phase 8 invoice generation.
+
+### 4. Calculation Order
+1. Base unit price resolved from product variant / pricing service.
+2. Gross line total computed: `gross = price_unit * quantity`.
+3. Eligible discounts identified via `brightloop.discount.service.check_eligibility()`.
+4. Highest priority non-stackable discount applied, followed by stackable discounts on the post-discount base. Caps applied, floored at ₹0.00.
+5. Taxable base established (`price_subtotal`).
+6. Native `account.tax.compute_all()` calculates applicable taxes (respecting fiscal position mapping).
+7. Final line total computed (`price_total = price_subtotal + tax_amount`).
+
+### 5. Statutory Configuration Disclaimer
+Brightloop calculates taxes according to the tax rates, sequences, repartition lines, and fiscal positions configured by the system administrator. It does not certify statutory tax compliance. All GST / VAT rates and accounting mappings must be configured and reviewed by certified tax professionals.

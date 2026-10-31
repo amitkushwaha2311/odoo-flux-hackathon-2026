@@ -46,6 +46,7 @@
         'mail',          # Messaging/chatter & notification templates
         'product',       # Official Odoo product & variant management engine
         'sale_management',  # Official Odoo sales & quotation template engine
+        'account',       # Official Odoo accounting & tax engine (account.tax, fiscal.position)
     ],
 
     # -------------------------------------------------------------------------

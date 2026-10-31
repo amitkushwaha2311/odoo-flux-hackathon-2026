@@ -10,8 +10,16 @@
 # - Retains links to source quotation lines (`source_order_line_id`).
 # - Product, variant, subscription plan, quantity, and unit price synchronization.
 # - Currency-aware subtotal computation.
+#
+# PHASE 7 ADDITIONS
+# -----------------
+# - discount_id: link to brightloop.discount rule applied at creation.
+# - tax_amount: computed via brightloop.tax.service.
+# - price_total: price_subtotal + tax_amount.
+# - tax_breakdown: stored JSON for Phase 8 recurring invoice generation.
 # =============================================================================
 
+import json
 import logging
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
@@ -86,6 +94,39 @@ class BrightloopSubscriptionLine(models.Model):
         default=0.0,
     )
 
+    discount_id = fields.Many2one(
+        comodel_name='brightloop.discount',
+        string='Applied Discount Rule',
+        readonly=True,
+        copy=False,
+        index=True,
+        help='Brightloop discount rule applied to this subscription line.',
+    )
+
+    tax_amount = fields.Monetary(
+        string='Tax Amount',
+        currency_field='currency_id',
+        compute='_compute_tax_amount',
+        store=True,
+        help='Total tax amount computed by brightloop.tax.service for this subscription line.',
+    )
+
+    price_total = fields.Monetary(
+        string='Total (Tax Included)',
+        currency_field='currency_id',
+        compute='_compute_tax_amount',
+        store=True,
+        help='Final total including all taxes.',
+    )
+
+    tax_breakdown = fields.Text(
+        string='Tax Breakdown (JSON)',
+        readonly=True,
+        copy=False,
+        help='Structured JSON tax breakdown from brightloop.tax.service. '
+             'Used by Phase 8 recurring invoice generation.',
+    )
+
     price_subtotal = fields.Monetary(
         string='Subtotal',
         currency_field='currency_id',
@@ -117,6 +158,27 @@ class BrightloopSubscriptionLine(models.Model):
             price = line.price_unit * (1 - (line.discount or 0.0) / 100.0)
             subtotal = price * line.quantity
             line.price_subtotal = line.currency_id.round(subtotal) if line.currency_id else subtotal
+
+    @api.depends('price_subtotal', 'product_id', 'currency_id')
+    def _compute_tax_amount(self):
+        has_tax_service = 'brightloop.tax.service' in self.env
+        tax_service = self.env['brightloop.tax.service'] if has_tax_service else None
+        for line in self:
+            if not line.product_id or not has_tax_service:
+                line.tax_amount = 0.0
+                line.price_total = line.price_subtotal
+                line.tax_breakdown = False
+                continue
+            try:
+                tax_res = tax_service.compute_taxes_for_subscription_line(line)
+                line.tax_amount = tax_res.get('total_tax', 0.0)
+                line.price_total = tax_res.get('total_included', line.price_subtotal)
+                line.tax_breakdown = json.dumps(tax_res)
+            except Exception as e:
+                _logger.warning('Failed to compute taxes for subscription line %s: %s', line.id, e)
+                line.tax_amount = 0.0
+                line.price_total = line.price_subtotal
+                line.tax_breakdown = False
 
     # =========================================================================
     # DATA INTEGRITY CONSTRAINTS

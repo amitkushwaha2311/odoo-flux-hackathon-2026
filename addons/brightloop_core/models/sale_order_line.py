@@ -20,7 +20,7 @@ import logging
 from datetime import datetime
 
 from odoo import api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ValidationError, UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -60,6 +60,48 @@ class SaleOrderLine(models.Model):
         store=True,
         index=True,
     )
+
+    discount_id = fields.Many2one(
+        comodel_name='brightloop.discount',
+        string='Applied Discount Rule',
+        check_company=True,
+        index=True,
+        help='Brightloop discount rule applied to this quotation line.',
+    )
+
+    def action_apply_discount(self, discount):
+        """
+        Apply a brightloop.discount rule to this quotation line with server-side
+        eligibility validation and deterministic discount computation.
+        """
+        self.ensure_one()
+        from datetime import datetime as dt_cls
+        order_date = self.order_id.date_order
+        target_date = order_date.date() if isinstance(order_date, dt_cls) else (order_date or fields.Date.today())
+
+        discount_service = self.env['brightloop.discount.service']
+        breakdown = discount_service.apply_discounts(
+            discounts=[discount],
+            price_unit=self.price_unit,
+            quantity=self.product_uom_qty,
+            product=self.product_id,
+            subscription_plan=self.subscription_plan_id,
+            currency=self.order_id.currency_id,
+            target_date=target_date,
+            company=self.order_id.company_id,
+            increment_usage=False,
+        )
+
+        if not breakdown['applied_discounts']:
+            rejection = breakdown['rejected_discounts'][0]['reason'] if breakdown['rejected_discounts'] else 'Discount not eligible.'
+            raise UserError(f'Cannot apply discount "{discount.name}": {rejection}')
+
+        eff_pct = breakdown['effective_discount_percent']
+        self.write({
+            'discount': eff_pct,
+            'discount_id': discount.id,
+        })
+        return breakdown
 
     # =========================================================================
     # COMPUTE METHODS
