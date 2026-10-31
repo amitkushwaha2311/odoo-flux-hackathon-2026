@@ -1211,6 +1211,10 @@
         const payments = portal.payments || [];
         const timeline = portal.timeline || [];
 
+        const activeSubCount = subscriptions.filter(s => s.state === 'active').length;
+        const openInvoiceCount = invoices.filter(i => i.payment_state !== 'paid').length;
+        const historicalPaymentsCount = payments.length;
+
         container.innerHTML = `
             <div class="page-header">
                 <div>
@@ -1222,65 +1226,77 @@
                 </div>
             </div>
 
-            <!-- Profile Overview & Edit Grid -->
-            <div class="grid grid-cols-2 gap-6 mb-8">
-                <div class="card">
-                    <div class="card-header">
-                        <div>
-                            <h3 class="card-title">Billing & Account Profile</h3>
-                            <p class="card-subtitle">Keep your direct contact details current</p>
-                        </div>
+            <!-- Compact KPI Cards Grid (Active Subscriptions, Open Invoices, Historical Settlements) -->
+            <div class="grid grid-cols-3 gap-6 mb-8">
+                <div class="kpi-card card">
+                    <div class="kpi-header flex-between mb-2">
+                        <span class="kpi-label">Active Contracts</span>
+                        <span class="kpi-icon-badge">🔄</span>
                     </div>
-                    <form id="portal-profile-form">
-                        <div class="form-group mb-4">
-                            <label class="form-label">Company / Account Name</label>
-                            <input type="text" class="form-control" value="${escapeHtml(profile.name || '')}" disabled>
-                        </div>
-                        <div class="form-group mb-4">
-                            <label class="form-label">Primary Email Address</label>
-                            <input type="email" class="form-control" value="${escapeHtml(profile.email || '')}" disabled>
-                            <span class="text-xs text-muted">Contact support to modify primary email.</span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div class="form-group">
-                                <label class="form-label">Phone</label>
-                                <input type="text" id="profile-phone" class="form-control" value="${escapeHtml(profile.phone || '')}">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Mobile</label>
-                                <input type="text" id="profile-mobile" class="form-control" value="${escapeHtml(profile.mobile || '')}">
-                            </div>
-                        </div>
-                        <div class="form-group mb-4">
-                            <label class="form-label">Billing Address</label>
-                            <input type="text" id="profile-street" class="form-control" value="${escapeHtml(profile.street || '')}">
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-sm">Update Contact Details</button>
-                    </form>
+                    <div class="kpi-value">${activeSubCount}</div>
+                    <div class="kpi-subtitle text-xs text-muted mt-2">Active recurring billing services</div>
                 </div>
 
-                <!-- Account Summary -->
-                <div class="card">
-                    <div class="card-header">
-                        <div>
-                            <h3 class="card-title">Contract Summary</h3>
-                            <p class="card-subtitle">Snapshot of current active subscriptions</p>
-                        </div>
+                <div class="kpi-card card">
+                    <div class="kpi-header flex-between mb-2">
+                        <span class="kpi-label">Outstanding Invoices</span>
+                        <span class="kpi-icon-badge">🧾</span>
                     </div>
-                    <div class="p-4">
-                        <div class="breakdown-stat">
-                            <span>Active Subscriptions:</span>
-                            <strong>${subscriptions.filter(s => s.state === 'active').length}</strong>
-                        </div>
-                        <div class="breakdown-stat">
-                            <span>Open Invoices:</span>
-                            <strong>${invoices.filter(i => i.payment_state !== 'paid').length}</strong>
-                        </div>
-                        <div class="breakdown-stat">
-                            <span>Total Historical Payments:</span>
-                            <strong>${payments.length}</strong>
-                        </div>
+                    <div class="kpi-value ${openInvoiceCount > 0 ? 'text-warning' : 'text-success'}">${openInvoiceCount}</div>
+                    <div class="kpi-subtitle text-xs text-muted mt-2">Statements pending settlement</div>
+                </div>
+
+                <div class="kpi-card card">
+                    <div class="kpi-header flex-between mb-2">
+                        <span class="kpi-label">Historical Settlements</span>
+                        <span class="kpi-icon-badge">💳</span>
                     </div>
+                    <div class="kpi-value">${historicalPaymentsCount}</div>
+                    <div class="kpi-subtitle text-xs text-muted mt-2">Reconciled ledger payments</div>
+                </div>
+            </div>
+
+            <!-- Billing Profile & Contact Settings -->
+            <div class="card mb-8">
+                <div class="card-header flex-between">
+                    <div>
+                        <h3 class="card-title">Billing & Account Profile</h3>
+                        <p class="card-subtitle">Keep your direct contact and billing details current for invoicing</p>
+                    </div>
+                    <span class="text-xs text-muted">Commercial Entity</span>
+                </div>
+                <div class="p-6">
+                    <form id="portal-profile-form">
+                        <div class="grid grid-cols-2 gap-6 mb-4">
+                            <div class="form-group">
+                                <label class="form-label">Company / Account Name</label>
+                                <input type="text" class="form-control" value="${escapeHtml(profile.name || '')}" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Primary Email Address</label>
+                                <input type="email" class="form-control" value="${escapeHtml(profile.email || '')}" disabled>
+                                <span class="text-xs text-muted mt-1 inline-block">Contact accounts support to modify registered email.</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-6 mb-6">
+                            <div class="form-group">
+                                <label class="form-label" for="profile-phone">Phone</label>
+                                <input type="text" id="profile-phone" class="form-control" placeholder="+1 (555) 000-0000" value="${escapeHtml(profile.phone || '')}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="profile-mobile">Mobile</label>
+                                <input type="text" id="profile-mobile" class="form-control" placeholder="+1 (555) 999-9999" value="${escapeHtml(profile.mobile || '')}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="profile-street">Billing Address</label>
+                                <input type="text" id="profile-street" class="form-control" placeholder="100 Financial Way, Suite 400" value="${escapeHtml(profile.street || '')}">
+                            </div>
+                        </div>
+                        <div class="flex-between">
+                            <span class="text-xs text-muted">All updates are instantly synchronized with Odoo accounting records.</span>
+                            <button type="submit" class="btn btn-primary btn-sm">Update Contact Details</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 

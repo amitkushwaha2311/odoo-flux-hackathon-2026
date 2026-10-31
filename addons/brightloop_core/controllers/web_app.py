@@ -38,9 +38,20 @@ class BrightloopWebAppController(http.Controller):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brightloop — Subscription Intelligence & Recurring Revenue Architecture</title>
     <link rel="stylesheet" href="/brightloop_core/static/src/css/brightloop_theme.css">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%232D7A4F'/><path d='M30 50 Q50 25 70 50 Q50 75 30 50' stroke='%23F4F1EA' stroke-width='8' fill='none'/></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23C6A66B'/><path d='M30 50 Q50 25 70 50 Q50 75 30 50' stroke='%2311120F' stroke-width='8' fill='none'/></svg>">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body class="landing-body">
+    <!-- 3D Geometric Brand Intro Screen Overlay -->
+    <div class="brand-intro-overlay" id="brand-intro-overlay">
+        <canvas id="brand-intro-canvas"></canvas>
+        <div class="intro-brand-container">
+            <h1 class="intro-wordmark" id="intro-wordmark">BRIGHTLOOP</h1>
+            <p class="intro-subtext" id="intro-subtext">Subscription Intelligence Architecture</p>
+        </div>
+        <button type="button" class="skip-intro-btn" id="skip-intro-btn">Skip Intro &rarr;</button>
+    </div>
+
     <!-- Living Green Ambient Particle Canvas -->
     <canvas id="ambient-canvas"></canvas>
 
@@ -67,30 +78,27 @@ class BrightloopWebAppController(http.Controller):
     <!-- Hero Section with Palomar Video -->
     <main>
         <section class="hero-section">
+            <div class="hero-bg-video-container">
+                <video id="hero-video" class="hero-video" autoplay loop muted playsinline poster="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261014_121838_c97d0940-f430-4304-8573-4f47ee44f447.png">
+                    <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260820_010308_b1636845-4c15-4ab6-b0c9-9a29bfb0c6e3.mp4" type="video/mp4">
+                </video>
+                <div class="hero-overlay"></div>
+            </div>
+
             <div class="hero-content">
                 <div class="hero-badge">
                     <span class="pulse-dot"></span> Brightloop Enterprise v2026.1
                 </div>
                 <h1 class="hero-title">
-                    Unified Subscription Intelligence &<br>
-                    <span>Recurring Revenue Engine</span>
+                    Intelligence Behind Every<br>
+                    <span class="editorial-gold">Recurring Revenue.</span>
                 </h1>
                 <p class="hero-subtitle">
-                    Transform complex multi-frequency subscriptions, recurring billing schedules, and multi-tier reconciliations into flawless financial clarity on modern Odoo 20 architecture.
+                    Unify subscriptions, recurring billing, payment reconciliation and financial intelligence in one powerful platform.
                 </p>
                 <div class="hero-cta-group">
                     <a href="/app" class="btn btn-primary btn-lg">Launch Platform Console</a>
                     <a href="/auth/register" class="btn btn-secondary btn-lg">Create Customer Account</a>
-                </div>
-            </div>
-
-            <!-- Palomar Cinematic Video Container -->
-            <div class="hero-video-wrapper">
-                <div class="hero-video-frame">
-                    <video id="hero-video" class="hero-video" autoplay loop muted playsinline poster="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='720' viewBox='0 0 1280 720'><rect width='100%' height='100%' fill='%2308120C'/><text x='50%' y='50%' fill='%236BBF8A' font-family='sans-serif' font-size='24' text-anchor='middle'>Brightloop Cinematic Engine</text></svg>">
-                        <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260820_010308_b1636845-4c15-4ab6-b0c9-9a29bfb0c6e3.mp4" type="video/mp4">
-                    </video>
-                    <div class="video-overlay-gradient"></div>
                 </div>
             </div>
         </section>
@@ -188,7 +196,7 @@ class BrightloopWebAppController(http.Controller):
         <!-- Driftbar Atmospheric Footer -->
         <footer class="driftbar-footer">
             <div class="driftbar-video-container">
-                <video id="footer-video" class="driftbar-video" autoplay loop muted playsinline poster="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='360' viewBox='0 0 1280 360'><rect width='100%' height='100%' fill='%2308120C'/></svg>">
+                <video id="footer-video" class="driftbar-video" autoplay loop muted playsinline poster="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261014_121838_c97d0940-f430-4304-8573-4f47ee44f447.png">
                     <source src="https://d2ol7oe51mr4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/4d01c727-d9c5-47c8-a778-35a451ffd39f.mp4" type="video/mp4">
                 </video>
                 <div class="driftbar-overlay"></div>
@@ -203,6 +211,8 @@ class BrightloopWebAppController(http.Controller):
                         <a href="/auth/register" class="btn btn-secondary btn-lg">Customer Sign Up</a>
                     </div>
                 </div>
+
+                <div class="oversized-footer-wordmark">BRIGHTLOOP</div>
 
                 <div class="footer-bottom">
                     <div class="brand-logo">
