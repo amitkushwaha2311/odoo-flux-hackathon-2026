@@ -18,3 +18,4 @@ from . import test_billing_engine
 from . import test_payment_engine
 from . import test_customer_portal
 from . import test_finance_analytics
+from . import test_frontend_experience

@@ -794,3 +794,104 @@ Exposed via `addons/brightloop_core/controllers/analytics_api.py` (all endpoints
 
 
 
+
+
+---
+
+# Phase 12 — Premium Frontend, Complete Product Experience & Visual System
+
+## 1. Executive Summary & Design System
+
+Phase 12 delivers the complete, production-grade frontend experience for Brightloop Subscription Intelligence on native Odoo 20 Community Edition. The system introduces a bespoke design system avoiding generic admin templates:
+
+- **Color Palette & Design Tokens**:
+  - `Forest 950` (`#08120C`) to `Forest 700` (`#1F3A27`): Deep, organic background & surface hierarchy.
+  - `Cream 50` (`#FDFCFA`) to `Cream 100` (`#F4F1EA`): Warm, paper-like high-contrast readability.
+  - `Sage` (`#6BBF8A`): Vitality, positive financial trends, active status indicators.
+  - `Champagne` (`#D4AF37`): Subtle elegance, premium accents, metric highlights.
+  - `Graphite` (`#1A241E`): Precision borders and elevated glassmorphism backdrops.
+- **Surface Elevation & Glassmorphism**:
+  - Frosted backdrop filter (`blur(16px)`), semi-transparent borders (`rgba(107, 191, 138, 0.12)`), soft ambient shadows.
+- **Living Visual Storytelling**:
+  - Cinematic Palomar hero video asset.
+  - Ambient particle canvas with ThreeUI-inspired living green mesh physics.
+  - Atmospheric Driftbar video footer with graceful poster fallbacks.
+
+## 2. Public Experience & Authentication Routes
+
+| Route | View Description | Visual & Functional Assets |
+|---|---|---|
+| `/` and `/brightloop` | Public SaaS Marketing Platform | Palomar Hero Video (`hf_20260820_010308_b1636845-4c15-4ab6-b0c9-9a29bfb0c6e3.mp4`), Prisma Feature Cards, ThreeUI Living Green Canvas, Driftbar Footer Video (`4d01c727-d9c5-47c8-a778-35a451ffd39f.mp4`). |
+| `/auth/login` | Authentication Portal | Credential validation, session cookie rotation via Odoo native session store, dynamic role redirection. |
+| `/auth/register` | Customer Registration | Real-time interactive password policy checklist (>8 chars, uppercase, lowercase, special character), partner & customer user creation. |
+| `/auth/reset-password` | Password Recovery | OWASP-compliant password reset initiation without user existence enumeration. |
+| `/app` | Management Console | Full Staff & Admin SaaS operating system with interactive tabs, SVG charts, and lifecycle modals. |
+| `/app/portal` | Customer Self-Service | Strictly isolated customer portal for contract management, address updates, and PDF invoice receipts. |
+
+## 3. SaaS Application Architecture (`/app`)
+
+1. **Executive Overview**:
+   - Live KPI cards consuming `/api/v1/analytics/kpis` (Live MRR, ARR, Active Subscriptions, Invoiced Revenue, Collection Rate, Churn Rate).
+   - Interactive SVG Area Chart for recurring revenue growth trends with gradient fill and coordinate tooltips.
+   - Portfolio State progress bars (Active vs Paused vs Terminated).
+   - Recent invoices table with residual balances and direct navigation.
+2. **Subscription Lifecycle Management**:
+   - Real Odoo subscriptions across the enterprise.
+   - Interactive modal actions: Pause (verifies `allow_pause`), Resume, Renew, and Close Early (verifies `allow_early_closure`).
+   - Filter pills (All, Active, Paused, Closed).
+3. **Products & Plans Catalog**:
+   - Active subscription plans with billing recurrence, pricing, and lifecycle policies.
+   - Products and services with internal codes and sales pricing.
+4. **Quotations & Sales Pipeline**:
+   - Sale orders and conversion quotations with order status tracking.
+5. **Invoices & Billing History**:
+   - Customer accounts receivable records, residual balances, and downloadable tax receipts via `/api/v1/portal/invoices/<id>/pdf`.
+6. **Payments & Reconciliations**:
+   - Inbound settlement entries, journal allocations (Bank/Cash), and ledger postings.
+7. **Financial Analytics & Aging Engine**:
+   - AR aging buckets (Current, 1–30d, 31–60d, 61–90d, 90+d overdue) with graphical distribution.
+   - Customer financial metrics (Active paying subscriber count, ARPU, MoM MRR growth).
+
+## 4. RESTful API Reference
+
+### Identity & Session API (`auth_api.py`)
+- `POST /api/v1/auth/login`: Authenticates login and password, sets session cookie.
+- `POST /api/v1/auth/register`: Creates partner and customer user with strict password validation.
+- `POST /api/v1/auth/reset-password`: Dispatches password reset instructions safely.
+- `GET /api/v1/auth/me`: Returns current session user, role (`admin`, `staff`, `customer`, `anonymous`), and permissions.
+- `POST /api/v1/auth/logout`: Terminates user session.
+
+### Application Internal API (`app_api.py`)
+- `GET /api/v1/app/subscriptions`: Cross-company subscription contracts with filtering and pagination.
+- `POST /api/v1/app/subscriptions/<id>/action`: Lifecycle action execution (pause, resume, renew, close).
+- `GET /api/v1/app/catalog`: Active plans and product catalog.
+- `GET /api/v1/app/quotations`: Sales quotations and orders.
+- `GET /api/v1/app/invoices`: Customer posted invoices and balances.
+- `GET /api/v1/app/payments`: Inbound customer payments.
+
+## 5. Verification & Test Suite Summary
+
+All Phase 12 capabilities are verified by automated HTTP test suite `TestFrontendExperience` (`test_frontend_experience.py`):
+
+- **19 Test Cases**:
+  - `test_01_landing_page_palomar_hero_video`: HTTP 200, Palomar video tag and URL.
+  - `test_02_landing_page_driftbar_footer_video`: HTTP 200, Driftbar video tag and URL.
+  - `test_03_landing_page_living_green_particle_canvas`: Ambient canvas and landing JS.
+  - `test_04_auth_login_page_renders`: Login form fields and redirect handler.
+  - `test_05_auth_register_page_password_policy_checklist`: Real-time policy rules (len, upper, lower, special).
+  - `test_06_auth_reset_password_page_renders`: Recovery instructions and form.
+  - `test_07_app_shell_and_portal_shell_structure`: App shell, portal shell, and tab containers.
+  - `test_08_api_auth_me_anonymous`: Unauthenticated access returns anonymous status.
+  - `test_09_api_auth_register_weak_password_rejected`: Password policy enforcement.
+  - `test_10_api_auth_register_success`: Customer creation with `group_brightloop_customer`.
+  - `test_11_api_auth_login_invalid_password`: Rejection with HTTP 401.
+  - `test_12_api_auth_login_success`: Valid login sets session and returns identity.
+  - `test_13_api_auth_logout`: Session termination.
+  - `test_14_api_auth_reset_password_endpoint`: Reset token request handling.
+  - `test_15_api_app_subscriptions_unauthorized_rejection`: 403 on unauthenticated access.
+  - `test_16_api_app_authenticated_staff_data`: Staff access to subscriptions, catalog, quotations, invoices, payments.
+  - `test_17_api_app_subscription_lifecycle_actions`: Staff pause and resume lifecycle operations.
+  - `test_18_theme_css_serves_design_tokens`: Delivery of Forest, Cream, Champagne tokens.
+  - `test_19_javascript_assets_serve_successfully`: Delivery of landing and app JavaScript bundles.
+
+**Test Results: 19/19 PASSED (0 failures, 0 errors).**
