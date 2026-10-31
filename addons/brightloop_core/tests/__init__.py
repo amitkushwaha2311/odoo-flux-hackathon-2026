@@ -14,3 +14,4 @@ from . import test_subscription_plans
 from . import test_quotations
 from . import test_subscriptions
 from . import test_taxes_and_discounts
+from . import test_billing_engine

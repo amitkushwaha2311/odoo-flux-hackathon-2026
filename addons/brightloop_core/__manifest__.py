@@ -59,6 +59,7 @@
         'data/mail_template_data.xml',
         'data/subscription_sequence_data.xml',
         'data/subscription_cron.xml',
+        'data/billing_cron.xml',
     ],
 
     # -------------------------------------------------------------------------

@@ -44,6 +44,7 @@ class BrightloopSubscriptionHistory(models.Model):
             ('auto_closed', 'Subscription Auto Closed'),
             ('renewed', 'Subscription Renewed'),
             ('date_modified', 'Subscription Date Modified'),
+            ('invoice_generated', 'Recurring Invoice Generated'),
         ],
         string='Lifecycle Event',
         required=True,

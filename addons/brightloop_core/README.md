@@ -351,3 +351,145 @@ docker compose exec -T odoo /entrypoint.sh odoo \
 
 ### 5. Statutory Configuration Disclaimer
 Brightloop calculates taxes according to the tax rates, sequences, repartition lines, and fiscal positions configured by the system administrator. It does not certify statutory tax compliance. All GST / VAT rates and accounting mappings must be configured and reviewed by certified tax professionals.
+
+
+---
+
+## Phase 8: Automated Recurring Invoicing & Billing Engine
+
+### 1. Overview & Architectural Principles
+Phase 8 implements a high-throughput, idempotent, automated recurring billing engine directly atop Odoo's native accounting (`account.move` and `account.move.line`) and tax calculation infrastructure.
+
+Key capabilities:
+- **`brightloop.billing.period`**: Dedicated contract billing cycle model guaranteeing 1:1 traceability between subscription cycles and generated customer invoices.
+- **`brightloop.billing.service`**: Stateless business service orchestrating due discovery, gapless period calculation, atomic invoice generation, tax/discount application, schedule progression, and multi-cycle missed period recovery.
+- **Native Odoo `account.move` Integration**: Generates official `out_invoice` records with `is_subscription_invoice=True`, linking header and lines directly back to the subscription contract.
+- **PostgreSQL-Level Idempotency**: Hard schema constraint `UNIQUE (idempotency_key)` on format `sub_{subscription_id}_{start_date}_{end_date}` prevents duplicate period creation even across concurrent threads.
+- **Row-Level Concurrency Protection**: Acquires `SELECT ... FOR UPDATE` locks on subscriptions during billing evaluation, eliminating race conditions.
+- **Gapless Period Chaining**: Periods chain continuously (`next_start = prior_end + 1 day`) while preserving calendar anchor dates (e.g. 31st across Feb/Apr/Jun/Sep/Nov).
+- **Real-Time Tax & Discount Revalidation**: Queries live product taxes (`product.taxes_id`) and verifies discount validity/usage limits at invoice time, consuming discount usage atomically.
+- **Automated Missed Billing Catchup**: Iterates sequentially through multiple overdue cycles in historical order without skips or overlaps.
+- **Bounded Retries with Failure Isolation**: Caps automatic retries at 3 with detailed failure reasons and provides authorized manual retry (`action_retry()`).
+- **Scheduled Actions (`ir.cron`)**: Automated daily billing batch execution and periodic retry of failed cycles.
+- **Role-Based Security & Audit**: Full Admin CRUD, Staff operational access + manual retry, Customer portal read isolation (own partner records only), and 9 dedicated audit event types.
+
+---
+
+### 2. Billing Engine Workflow
+
+```mermaid
+flowchart TD
+    A["Scheduled Cron / Manual Trigger"] --> B["get_due_subscriptions(target_date)"]
+    B --> C["Filter: state == 'active' & next_billing_date <= target_date"]
+    C --> D["Acquire SELECT ... FOR UPDATE Lock"]
+    D --> E["calculate_billing_period() — Gapless Chain & Anchor"]
+    E --> F["create_or_get_billing_period() — Idempotency Key Guard"]
+    F --> G{"Already Invoiced?"}
+    G -- "Yes" --> H["Return Existing invoice_id (Idempotent)"]
+    G -- "No" --> I["generate_invoice()"]
+    I --> J["Revalidate Discounts & Consume Usage Atomically"]
+    I --> K["Compute Real-Time Taxes from product.taxes_id"]
+    I --> L["Create Native account.move (out_invoice) & lines"]
+    L --> M["Update Billing Period: status='invoiced', amounts"]
+    M --> N["Advance Subscription: last_billing_date & next_billing_date"]
+    N --> O["Log Security Audit Events & Lifecycle History"]
+    I -- "Exception" --> P["Savepoint Rollback & Record failure_reason, retry_count++"]
+```
+
+---
+
+### 3. Reused Native Accounting Models
+
+| Native Model | Extension Purpose in Brightloop |
+|---|---|
+| `account.move` | Augmented with `is_subscription_invoice`, `subscription_id`, `billing_period_id`, `billing_period_start`, and `billing_period_end`. |
+| `account.move.line` | Augmented with `subscription_id` and `subscription_line_id` for granular line-level revenue traceability. |
+| `account.tax` | Evaluated dynamically at invoice creation time via `product_id.taxes_id` supporting tax-inclusive, tax-exclusive, and CGST/SGST splits. |
+| `account.journal` | Automatic resolution of company sales journal (`type='sale'`). |
+
+---
+
+### 4. Billing Period Model (`brightloop.billing.period`)
+
+- **Fields**:
+  - `subscription_id` (Many2one `brightloop.subscription`, required, cascade)
+  - `customer_id` (Many2one `res.partner`, required)
+  - `company_id` (Many2one `res.company`, required, default current company)
+  - `currency_id` (Many2one `res.currency`, required)
+  - `billing_period_start` (Date, inclusive start of cycle)
+  - `billing_period_end` (Date, inclusive end of cycle)
+  - `billing_date` (Date, invoice/due date)
+  - `billing_interval` & `billing_interval_count` (inherited from subscription plan)
+  - `status` (`pending`, `processing`, `invoiced`, `failed`, `skipped`, `cancelled`)
+  - `invoice_id` (Many2one `account.move`, readonly link to customer invoice)
+  - `retry_count` (Integer, capped at 3 for automatic processing)
+  - `last_attempt_date` (Datetime)
+  - `failure_reason` (Text)
+  - `idempotency_key` (Char, unique deterministic key)
+  - `amount_untaxed`, `amount_tax`, `amount_total` (Monetary)
+- **PostgreSQL Constraints**:
+  - `brightloop_billing_period_idempotency_key_uniq`: `UNIQUE (idempotency_key)`
+  - `brightloop_billing_period_period_range_uniq`: `UNIQUE (subscription_id, billing_period_start, billing_period_end)`
+
+---
+
+### 5. Automated Scheduled Jobs
+
+1. **`ir_cron_process_due_billing`**:
+   - Model: `brightloop.billing.period`
+   - Code: `model._cron_process_due_billing()`
+   - Interval: Daily (1 Day)
+   - Function: Discovers active subscriptions due for billing and processes them in bounded batches with transaction savepoint failure isolation.
+2. **`ir_cron_retry_failed_billing`**:
+   - Model: `brightloop.billing.period`
+   - Code: `model._cron_retry_failed_periods()`
+   - Interval: 4 Hours
+   - Function: Automatically retries failed billing periods whose `retry_count < 3`.
+
+---
+
+### 6. Phase 8 Test Suite Coverage (`test_billing_engine.py` — 33 Tests)
+
+1. **Billing Period Calculation (Tests 01–06)**:
+   - Daily gapless 1-day windows
+   - Weekly 7-day inclusive windows
+   - Monthly full-calendar calculation
+   - Quarterly 3-month calculation
+   - Annual 365/366-day calculation
+   - Gapless chaining from prior period end date without time drift
+2. **Invoice Generation & Traceability (Tests 07–12)**:
+   - Generation of native `account.move` (`out_invoice`) with matching customer, company, currency
+   - Brightloop backlink fields (`is_subscription_invoice`, `subscription_id`, `billing_period_id`)
+   - Granular invoice line traceability to `subscription_line_id`
+   - Strict exclusion/skipping of paused, closed, and draft contracts
+   - Multi-line subscription invoicing with accurate line totals
+3. **Tax Integration (Tests 13–15)**:
+   - Tax-exclusive 18% GST (base ₹1,500 + tax ₹270 = ₹1,770)
+   - Tax-inclusive 18% GST (base ₹1,271.19 + tax ₹228.81 = ₹1,500)
+   - Intra-state CGST 9% + SGST 9% split (base ₹1,500 + ₹135 + ₹135 = ₹1,770)
+4. **Discount Revalidation & Usage (Tests 16–19)**:
+   - Recurring percentage discount application (10% off ₹1,500 = ₹1,350 untaxed)
+   - Expired discount rejection during recurring revalidation (full price ₹1,500 invoiced)
+   - Exhausted usage limit discount rejection (full price ₹1,500 invoiced)
+   - Atomic usage increment upon successful invoice creation (`usage_count` 0 → 1)
+5. **Idempotency & Duplicate Prevention (Tests 20–22)**:
+   - PostgreSQL unique constraint rejection of duplicate idempotency keys
+   - Idempotent service execution returning existing invoice for already-invoiced periods
+   - Batch exclusion of subscriptions not yet due
+6. **Missed Billing Recovery (Tests 23–24)**:
+   - Multi-cycle overdue recovery generating 3 consecutive invoices for 3 missed months
+   - Strict gapless boundary continuity across recovered periods
+7. **Retries & Error Recovery (Tests 25–27)**:
+   - Failure tracking with status, error reason, and attempt timestamp
+   - Authorized manual retry via `action_retry()` successfully recovering failed periods
+   - Cron retry boundary excluding periods reaching maximum 3 retries
+8. **Billing Schedule Advancement (Tests 28–29)**:
+   - Exact advancement of `last_billing_date` and `next_billing_date` upon success
+   - Billing anchor day preservation across shorter months (Jan 31 → Feb 28 → Mar 31)
+9. **Role-Based Security & Audit Trail (Tests 30–32)**:
+   - Customer portal read isolation (customers can view only their own billing periods)
+   - Security audit logging for 9 Phase 8 event types
+   - Duplicate attempt detection and `billing_duplicate_prevented` audit logging
+10. **Performance Benchmark (Test 33)**:
+    - 1,000 active subscriptions processed in an automated batch run.
+    - Verified 0 failures, 0 duplicate billing periods, and 100% billing date advancement.

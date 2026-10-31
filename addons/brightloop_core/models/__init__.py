@@ -21,4 +21,7 @@ from . import sale_order_line
 from . import sale_order_template
 from . import subscription_history
 from . import subscription_line
+from . import billing_period
+from . import account_move
+from . import billing_service
 from . import subscription

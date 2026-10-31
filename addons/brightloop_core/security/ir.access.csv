@@ -30,3 +30,6 @@ access_brightloop_subscription_history_admin,brightloop.subscription.history.adm
 access_brightloop_subscription_history_staff,brightloop.subscription.history.staff,brightloop.subscription.history,brightloop_core.group_brightloop_staff,r,
 access_brightloop_discount_admin,brightloop.discount.admin,brightloop.discount,brightloop_core.group_brightloop_admin,crud,
 access_brightloop_discount_staff,brightloop.discount.staff,brightloop.discount,brightloop_core.group_brightloop_staff,r,
+access_brightloop_billing_period_admin,brightloop.billing.period.admin,brightloop.billing.period,brightloop_core.group_brightloop_admin,crud,
+access_brightloop_billing_period_staff,brightloop.billing.period.staff,brightloop.billing.period,brightloop_core.group_brightloop_staff,crud,
+access_brightloop_billing_period_customer,brightloop.billing.period.customer,brightloop.billing.period,brightloop_core.group_brightloop_customer,r,"[('customer_id', '=', user.partner_id.id)]"

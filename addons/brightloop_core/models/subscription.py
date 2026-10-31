@@ -252,6 +252,13 @@ class BrightloopSubscription(models.Model):
         readonly=True,
     )
 
+    billing_period_ids = fields.One2many(
+        comodel_name='brightloop.billing.period',
+        inverse_name='subscription_id',
+        string='Billing Periods',
+        readonly=True,
+    )
+
     notes = fields.Text(
         string='Internal Notes',
     )
