@@ -749,11 +749,96 @@ class TestPaymentEngine(TransactionCase):
                     'idempotency_key': key,
                 })
 
+    def test_34_idempotency_key_reuse_with_different_amount_rejected(self):
+        """Reusing an idempotency key with a different amount must raise ValidationError."""
+        inv = self._create_posted_invoice(amount=5000.0)
+        key = f"pay_mismatch_amt_{inv.id}"
+
+        # Register initial payment of 2000
+        self.PaymentService.with_user(self.admin_user).register_payment(
+            invoice_ids=inv.id,
+            amount=2000.0,
+            idempotency_key=key,
+        )
+
+        # Attempt to reuse same key with amount 3000 -> must fail
+        with self.assertRaises(ValidationError):
+            self.PaymentService.with_user(self.admin_user).register_payment(
+                invoice_ids=inv.id,
+                amount=3000.0,
+                idempotency_key=key,
+            )
+
+    def test_35_idempotency_key_reuse_with_different_customer_rejected(self):
+        """Reusing an idempotency key with a different customer must raise ValidationError."""
+        inv1 = self._create_posted_invoice(partner=self.partner_customer, amount=3000.0)
+        inv2 = self._create_posted_invoice(partner=self.partner_other_customer, amount=3000.0)
+        key = f"pay_mismatch_cust_{inv1.id}"
+
+        self.PaymentService.with_user(self.admin_user).register_payment(
+            invoice_ids=inv1.id,
+            amount=3000.0,
+            partner_id=self.partner_customer.id,
+            idempotency_key=key,
+        )
+
+        with self.assertRaises(ValidationError):
+            self.PaymentService.with_user(self.admin_user).register_payment(
+                invoice_ids=inv2.id,
+                amount=3000.0,
+                partner_id=self.partner_other_customer.id,
+                idempotency_key=key,
+            )
+
+    def test_36_idempotency_key_reuse_with_different_invoice_allocation_rejected(self):
+        """Reusing an idempotency key with different invoice allocation must raise ValidationError."""
+        inv1 = self._create_posted_invoice(amount=4000.0)
+        inv2 = self._create_posted_invoice(amount=4000.0)
+        key = f"pay_mismatch_alloc_{inv1.id}"
+
+        self.PaymentService.with_user(self.admin_user).register_payment(
+            invoice_ids=inv1.id,
+            amount=4000.0,
+            idempotency_key=key,
+        )
+
+        # Reusing key with inv2 instead of inv1
+        with self.assertRaises(ValidationError):
+            self.PaymentService.with_user(self.admin_user).register_payment(
+                invoice_ids=inv2.id,
+                amount=4000.0,
+                idempotency_key=key,
+            )
+
+    def test_37_reversal_preserves_posted_accounting_history(self):
+        """Reversal does NOT delete accounting records; move is kept with state='cancel' and audit preserved."""
+        inv = self._create_posted_invoice(amount=2500.0)
+        res = self.PaymentService.with_user(self.admin_user).register_payment(inv.id, 2500.0)
+        payment = self.AccountPayment.browse(res['payment_id'])
+        pay_move = payment.move_id
+        move_id = pay_move.id
+
+        # Verify move exists in posted state before reversal
+        self.assertEqual(pay_move.state, 'posted')
+
+        # Reverse payment
+        self.PaymentService.with_user(self.admin_user).reverse_payment(payment, reason='Preservation audit check')
+
+        # Move record must NOT be deleted from PostgreSQL
+        persisted_move = self.AccountMove.search([('id', '=', move_id)])
+        self.assertEqual(len(persisted_move), 1, "Cancelled payment move must not be deleted from database")
+        self.assertEqual(persisted_move.state, 'cancel', "Payment move must be in cancel state")
+
+        # Invoice residual must be restored
+        inv.invalidate_recordset(['amount_residual', 'payment_state'])
+        self.assertEqual(inv.amount_residual, 2500.0)
+        self.assertEqual(inv.payment_state, 'not_paid')
+
     # =========================================================================
     # 10. PERFORMANCE BENCHMARK (100 INVOICE PAYMENTS)
     # =========================================================================
 
-    def test_34_performance_benchmark_100_payments_registration_and_reconciliation(self):
+    def test_38_performance_benchmark_100_payments_registration_and_reconciliation(self):
         """
         BENCHMARK: Register and reconcile payments for 100 subscription invoices.
 

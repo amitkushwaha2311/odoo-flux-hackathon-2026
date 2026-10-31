@@ -206,10 +206,45 @@ class BrightloopPaymentService(models.AbstractModel):
         else:
             raise ValidationError('Invalid invoice_ids parameter.')
 
-        # 1. Idempotency Check
+        if not invoices:
+            raise ValidationError('At least one invoice is required for payment registration.')
+
+        # Resolve company, currency, partner early for payload comparison
+        company = self.env['res.company'].browse(company_id) if company_id else invoices[0].company_id
+        currency = self.env['res.currency'].browse(currency_id) if currency_id else invoices[0].currency_id
+        partner = self.env['res.partner'].browse(partner_id) if partner_id else invoices[0].partner_id
+
+        # 1. Idempotency Check with Payload Conflict Validation
         if idempotency_key:
             existing_pay = self.env['account.payment'].search([('idempotency_key', '=', idempotency_key)], limit=1)
             if existing_pay:
+                # Validate payload consistency: amount, customer, company, currency, invoice allocation
+                existing_invoices = existing_pay.reconciled_invoice_ids or existing_pay.invoice_ids
+                mismatches = []
+
+                if currency.compare_amounts(amount, existing_pay.amount) != 0:
+                    mismatches.append(f"amount (requested: {amount}, existing: {existing_pay.amount})")
+                if existing_pay.partner_id.commercial_partner_id.id != partner.commercial_partner_id.id:
+                    mismatches.append(f"customer (requested: {partner.name}, existing: {existing_pay.partner_id.name})")
+                if existing_pay.company_id.id != company.id:
+                    mismatches.append(f"company (requested: {company.name}, existing: {existing_pay.company_id.name})")
+                if existing_pay.currency_id.id != currency.id:
+                    mismatches.append(f"currency (requested: {currency.name}, existing: {existing_pay.currency_id.name})")
+                if set(existing_invoices.ids) != set(invoices.ids):
+                    mismatches.append(f"invoice allocation (requested: {sorted(invoices.ids)}, existing: {sorted(existing_invoices.ids)})")
+
+                if mismatches:
+                    err_msg = (
+                        f"Idempotency conflict: Key '{idempotency_key}' was previously used with a different request payload: "
+                        + "; ".join(mismatches)
+                    )
+                    self.env['brightloop.security.audit'].log_event(
+                        event_type='payment_failed',
+                        summary=f'Idempotency payload mismatch: {idempotency_key}',
+                        details=err_msg,
+                    )
+                    raise ValidationError(err_msg)
+
                 self.env['brightloop.security.audit'].log_event(
                     event_type='payment_duplicate_prevented',
                     summary=f'Duplicate payment prevented: {idempotency_key}',
@@ -233,11 +268,6 @@ class BrightloopPaymentService(models.AbstractModel):
                     ],
                 }
 
-        # Resolve company, currency, partner
-        company = self.env['res.company'].browse(company_id) if company_id else invoices[0].company_id
-        currency = self.env['res.currency'].browse(currency_id) if currency_id else invoices[0].currency_id
-        partner = self.env['res.partner'].browse(partner_id) if partner_id else invoices[0].partner_id
-
         # Resolve journal
         Journal = self.env['account.journal']
         if journal_id:
@@ -252,7 +282,14 @@ class BrightloopPaymentService(models.AbstractModel):
             if not journal:
                 raise UserError(f'No bank or cash payment journal found for company "{company.name}".')
 
-        # 2. Precondition Validation
+        # 2. Acquire Row-Level Lock on Invoices for Concurrent Allocation Safety
+        invoices.flush_recordset(['amount_residual', 'state', 'payment_state'])
+        self.env.cr.execute(
+            'SELECT id, amount_residual FROM account_move WHERE id IN %s FOR UPDATE',
+            (tuple(invoices.ids),)
+        )
+
+        # 3. Precondition Validation
         self.validate_payment_request(
             invoices=invoices,
             amount=amount,
