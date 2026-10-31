@@ -1,0 +1,29 @@
+# Development dependencies
+# These are tools used during local development only.
+# They are NOT installed inside the Docker container.
+#
+# Install with:  pip install -r requirements-dev.txt
+# Requires Python 3.12 (compatible with Odoo 20.0)
+
+# ---------------------------------------------------------------------------
+# Code quality
+# ---------------------------------------------------------------------------
+ruff==0.8.*               # Fast Python linter + formatter
+mypy==1.13.*              # Static type checker
+
+# ---------------------------------------------------------------------------
+# Testing utilities (local test runner; Odoo tests run inside Docker)
+# ---------------------------------------------------------------------------
+pytest==8.3.*
+pytest-cov==6.0.*
+
+# ---------------------------------------------------------------------------
+# Odoo development helpers
+# ---------------------------------------------------------------------------
+# Enables running odoo-specific scripts outside Docker (e.g., migration scripts)
+# Only needed if you install Odoo locally for tooling — not required for Docker.
+
+# ---------------------------------------------------------------------------
+# Miscellaneous
+# ---------------------------------------------------------------------------
+python-dotenv==1.0.*      # Load .env for local scripts

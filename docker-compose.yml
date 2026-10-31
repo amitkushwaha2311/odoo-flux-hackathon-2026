@@ -1,0 +1,82 @@
+# =============================================================================
+# Brightloop Subscription Intelligence — Docker Compose
+# Odoo 20.0 Community + PostgreSQL 16
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16 — Persistent relational database
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16
+    container_name: brightloop_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-brightloop_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-brightloop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - brightloop_db_data:/var/lib/postgresql/data
+    networks:
+      - brightloop_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brightloop} -d ${POSTGRES_DB:-brightloop_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # PostgreSQL is intentionally NOT exposed to the host.
+    # Internal Docker network access only.
+
+  # ---------------------------------------------------------------------------
+  # Odoo 20.0 Community Edition
+  # ---------------------------------------------------------------------------
+  odoo:
+    image: odoo:20.0
+    container_name: brightloop_odoo
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: db
+      PORT: 5432
+      USER: ${POSTGRES_USER:-brightloop}
+      PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      # Custom addons mounted read-only; Odoo will discover them via odoo.conf
+      - ./addons:/mnt/extra-addons:ro
+      # Odoo configuration file
+      - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
+      # Persistent Odoo filestore (attachments, sessions, etc.)
+      - brightloop_odoo_data:/var/lib/odoo
+    ports:
+      - "127.0.0.1:8069:8069"
+    networks:
+      - brightloop_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8069/web/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    command: ["odoo", "--config=/etc/odoo/odoo.conf"]
+
+# =============================================================================
+# Named Volumes — Persistent storage survives container restarts
+# =============================================================================
+volumes:
+  brightloop_db_data:
+    name: brightloop_db_data
+  brightloop_odoo_data:
+    name: brightloop_odoo_data
+
+# =============================================================================
+# Networks — Internal only; PostgreSQL not reachable from outside
+# =============================================================================
+networks:
+  brightloop_net:
+    name: brightloop_net
+    driver: bridge
