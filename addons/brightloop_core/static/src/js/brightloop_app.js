@@ -15,10 +15,15 @@
 (function () {
     'use strict';
 
+    // Detect initial mode from server-rendered body or URL
+    const isInitialPortalMode = window.location.pathname.includes('/portal') || 
+        document.body.classList.contains('portal-view') || 
+        document.body.classList.contains('role-customer');
+
     // State management
     const state = {
         user: null,
-        currentTab: 'overview',
+        currentTab: isInitialPortalMode ? 'portal' : 'overview',
         overviewData: null,
         subscriptions: [],
         catalog: null,
@@ -139,14 +144,20 @@
 
             if (state.user.role === 'customer' || isPortalMode) {
                 // Customer Portal mode
-                document.body.classList.add('portal-view');
+                document.body.classList.remove('role-staff', 'role-admin', 'role-anonymous');
+                document.body.classList.add('portal-view', 'role-customer');
                 // Hide staff-only tabs
                 document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'none');
+                document.querySelectorAll('.customer-only').forEach(el => el.style.display = '');
                 switchTab('portal');
             } else {
                 // Admin / Staff mode
+                document.body.classList.remove('portal-view', 'role-customer', 'role-anonymous');
+                document.body.classList.add(state.user.role === 'admin' ? 'role-admin' : 'role-staff');
                 document.querySelectorAll('.customer-only').forEach(el => el.style.display = 'none');
-                const initialTab = ['overview', 'subscriptions', 'catalog', 'quotations', 'invoices', 'payments', 'analytics'].includes(hash) ? hash : 'overview';
+                document.querySelectorAll('.staff-only').forEach(el => el.style.display = '');
+                const validStaffTabs = ['overview', 'subscriptions', 'catalog', 'quotations', 'invoices', 'payments', 'analytics', 'portal'];
+                const initialTab = validStaffTabs.includes(hash) ? hash : 'overview';
                 switchTab(initialTab);
             }
         } catch (err) {

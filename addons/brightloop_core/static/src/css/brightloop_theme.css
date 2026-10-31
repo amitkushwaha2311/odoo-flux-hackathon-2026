@@ -1072,6 +1072,25 @@ a:hover {
   font-size: 16px;
 }
 
+/* ==========================================================================
+   ROLE-BASED NAVIGATION VISIBILITY & ZERO-FLASH PROTECTION
+   ========================================================================== */
+body.portal-view .staff-only,
+body.role-customer .staff-only,
+.app-sidebar.role-customer .staff-only {
+  display: none !important;
+}
+
+body.role-staff .customer-only,
+body.role-admin:not(.portal-view) .customer-only {
+  display: none !important;
+}
+
+body.role-anonymous .sidebar-nav {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .sidebar-footer {
   padding: 16px 20px;
   border-top: 1px solid rgba(232, 213, 168, 0.1);

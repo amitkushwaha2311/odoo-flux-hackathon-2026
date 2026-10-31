@@ -15,6 +15,7 @@
 # - /app/portal: Customer Self-Service Portal Shell.
 # =============================================================================
 
+import html
 from odoo import http
 from odoo.http import request
 
@@ -550,17 +551,162 @@ class BrightloopWebAppController(http.Controller):
 
     @http.route(['/app', '/app/portal'], type='http', auth='public', methods=['GET'], csrf=False)
     def app_shell(self, **kw):
-        """Serve the unified authenticated SaaS application & customer portal."""
-        html_content = """<!DOCTYPE html>
+        """
+        Serve the unified authenticated SaaS application & customer portal.
+        Renders role-specific navigation and active tabs directly on the server
+        to completely eliminate client-side layout flashing, delayed hiding,
+        and unauthorized navigation flickering on page refresh.
+        """
+        user = request.env.user
+        is_authenticated = bool(
+            user and not user._is_public() and user.id != request.env.ref('base.public_user', raise_if_not_found=False).id
+        )
+
+        role = 'anonymous'
+        if is_authenticated:
+            if user._is_admin() or user.has_group('brightloop_core.group_brightloop_admin') or user.has_group('base.group_system'):
+                role = 'admin'
+            elif user.has_group('brightloop_core.group_brightloop_staff') or user.has_group('account.group_account_invoice'):
+                role = 'staff'
+            else:
+                role = 'customer'
+
+        path = request.httprequest.path
+        is_portal_mode = (path == '/app/portal') or (role == 'customer')
+
+        if is_portal_mode:
+            body_classes = "app-body portal-view role-customer"
+        elif is_authenticated:
+            body_classes = f"app-body role-{role}"
+        else:
+            body_classes = "app-body role-anonymous"
+
+        if is_authenticated:
+            user_name = html.escape(user.name or 'User')
+            user_initial = html.escape((user.name or 'U')[:1].upper())
+            user_role = role.upper()
+            role_badge_class = f"role-badge role-{role}"
+        else:
+            user_name = "Authenticating..."
+            user_initial = "..."
+            user_role = "SESSION"
+            role_badge_class = "role-badge"
+
+        # Server-render role-specific navigation to prevent flash of unauthorized tabs
+        if role == 'customer':
+            sidebar_nav_html = """
+                <div class="nav-section-title customer-only">Self-Service</div>
+                <button class="nav-item customer-only active" data-nav-tab="portal">
+                    <span class="nav-icon">👤</span> My Subscriptions &amp; Billing
+                </button>
+            """
+        elif role in ('admin', 'staff'):
+            if is_portal_mode:
+                sidebar_nav_html = """
+                    <div class="nav-section-title staff-only">Finance &amp; Operations</div>
+                    <button class="nav-item staff-only" data-nav-tab="overview">
+                        <span class="nav-icon">📊</span> Overview
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="subscriptions">
+                        <span class="nav-icon">🔄</span> Subscriptions
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="catalog">
+                        <span class="nav-icon">📦</span> Products &amp; Plans
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="quotations">
+                        <span class="nav-icon">📝</span> Quotations &amp; Sales
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="invoices">
+                        <span class="nav-icon">🧾</span> Invoices &amp; Billing
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="payments">
+                        <span class="nav-icon">💳</span> Payments &amp; Cashflow
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="analytics">
+                        <span class="nav-icon">📈</span> Finance Analytics
+                    </button>
+                    <div class="nav-section-title customer-only">Self-Service</div>
+                    <button class="nav-item customer-only active" data-nav-tab="portal">
+                        <span class="nav-icon">👤</span> My Subscriptions &amp; Billing
+                    </button>
+                """
+            else:
+                sidebar_nav_html = """
+                    <div class="nav-section-title staff-only">Finance &amp; Operations</div>
+                    <button class="nav-item staff-only active" data-nav-tab="overview">
+                        <span class="nav-icon">📊</span> Overview
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="subscriptions">
+                        <span class="nav-icon">🔄</span> Subscriptions
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="catalog">
+                        <span class="nav-icon">📦</span> Products &amp; Plans
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="quotations">
+                        <span class="nav-icon">📝</span> Quotations &amp; Sales
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="invoices">
+                        <span class="nav-icon">🧾</span> Invoices &amp; Billing
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="payments">
+                        <span class="nav-icon">💳</span> Payments &amp; Cashflow
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="analytics">
+                        <span class="nav-icon">📈</span> Finance Analytics
+                    </button>
+                    <div class="nav-section-title staff-only">Self-Service</div>
+                    <button class="nav-item staff-only" data-nav-tab="portal">
+                        <span class="nav-icon">👤</span> Customer Portal View
+                    </button>
+                """
+        else:
+            # Anonymous caller before JS session bootstrap / redirect
+            if is_portal_mode:
+                sidebar_nav_html = """
+                    <div class="nav-section-title customer-only">Self-Service</div>
+                    <button class="nav-item customer-only active" data-nav-tab="portal">
+                        <span class="nav-icon">👤</span> My Subscriptions &amp; Billing
+                    </button>
+                """
+            else:
+                sidebar_nav_html = """
+                    <div class="nav-section-title staff-only">Finance &amp; Operations</div>
+                    <button class="nav-item staff-only active" data-nav-tab="overview">
+                        <span class="nav-icon">📊</span> Overview
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="subscriptions">
+                        <span class="nav-icon">🔄</span> Subscriptions
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="catalog">
+                        <span class="nav-icon">📦</span> Products &amp; Plans
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="quotations">
+                        <span class="nav-icon">📝</span> Quotations &amp; Sales
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="invoices">
+                        <span class="nav-icon">🧾</span> Invoices &amp; Billing
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="payments">
+                        <span class="nav-icon">💳</span> Payments &amp; Cashflow
+                    </button>
+                    <button class="nav-item staff-only" data-nav-tab="analytics">
+                        <span class="nav-icon">📈</span> Finance Analytics
+                    </button>
+                """
+
+        overview_active_class = "active" if not is_portal_mode else ""
+        portal_active_class = "active" if is_portal_mode else ""
+
+        html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brightloop — Subscription Intelligence Console</title>
     <link rel="stylesheet" href="/brightloop_core/static/src/css/brightloop_theme.css">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%232D7A4F'/><path d='M30 50 Q50 25 70 50 Q50 75 30 50' stroke='%23F4F1EA' stroke-width='8' fill='none'/></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23C6A66B'/><path d='M30 50 Q50 25 70 50 Q50 75 30 50' stroke='%2311120F' stroke-width='8' fill='none'/></svg>">
 </head>
-<body class="app-body">
+<body class="{body_classes}">
     <div id="brightloop-app" class="app-layout">
         <!-- Sidebar Navigation -->
         <aside class="app-sidebar" id="app-sidebar">
@@ -572,43 +718,15 @@ class BrightloopWebAppController(http.Controller):
             </div>
 
             <nav class="sidebar-nav">
-                <!-- Staff / Admin Navigation -->
-                <div class="nav-section-title staff-only">Finance & Operations</div>
-                <button class="nav-item staff-only active" data-nav-tab="overview">
-                    <span class="nav-icon">📊</span> Overview
-                </button>
-                <button class="nav-item staff-only" data-nav-tab="subscriptions">
-                    <span class="nav-icon">🔄</span> Subscriptions
-                </button>
-                <button class="nav-item staff-only" data-nav-tab="catalog">
-                    <span class="nav-icon">📦</span> Products & Plans
-                </button>
-                <button class="nav-item staff-only" data-nav-tab="quotations">
-                    <span class="nav-icon">📝</span> Quotations & Sales
-                </button>
-                <button class="nav-item staff-only" data-nav-tab="invoices">
-                    <span class="nav-icon">🧾</span> Invoices & Billing
-                </button>
-                <button class="nav-item staff-only" data-nav-tab="payments">
-                    <span class="nav-icon">💳</span> Payments & Cashflow
-                </button>
-                <button class="nav-item staff-only" data-nav-tab="analytics">
-                    <span class="nav-icon">📈</span> Finance Analytics
-                </button>
-
-                <!-- Customer Self-Service Navigation -->
-                <div class="nav-section-title customer-only">Self-Service</div>
-                <button class="nav-item customer-only" data-nav-tab="portal">
-                    <span class="nav-icon">👤</span> My Subscriptions & Billing
-                </button>
+                {sidebar_nav_html}
             </nav>
 
             <div class="sidebar-footer">
                 <div class="user-profile-badge">
-                    <div class="user-avatar" id="user-initial-display">U</div>
+                    <div class="user-avatar" id="user-initial-display">{user_initial}</div>
                     <div class="user-info">
-                        <div class="user-name" id="user-name-display">Loading...</div>
-                        <span id="user-role-badge" class="role-badge">USER</span>
+                        <div class="user-name" id="user-name-display">{user_name}</div>
+                        <span id="user-role-badge" class="{role_badge_class}">{user_role}</span>
                     </div>
                 </div>
                 <button class="btn btn-outline btn-xs btn-block mt-3" id="logout-btn">Sign Out</button>
@@ -630,14 +748,14 @@ class BrightloopWebAppController(http.Controller):
 
             <!-- Workspace Panes -->
             <div class="app-workspace">
-                <div id="tab-overview" class="tab-pane active staff-only"></div>
+                <div id="tab-overview" class="tab-pane {overview_active_class} staff-only"></div>
                 <div id="tab-subscriptions" class="tab-pane staff-only"></div>
                 <div id="tab-catalog" class="tab-pane staff-only"></div>
                 <div id="tab-quotations" class="tab-pane staff-only"></div>
                 <div id="tab-invoices" class="tab-pane staff-only"></div>
                 <div id="tab-payments" class="tab-pane staff-only"></div>
                 <div id="tab-analytics" class="tab-pane staff-only"></div>
-                <div id="tab-portal" class="tab-pane"></div>
+                <div id="tab-portal" class="tab-pane {portal_active_class}"></div>
             </div>
         </main>
     </div>
