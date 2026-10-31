@@ -639,3 +639,4 @@ class BrightloopWebAppController(http.Controller):
 </html>
 """
         return request.make_response(html_content, headers=[('Content-Type', 'text/html; charset=utf-8')])
+
