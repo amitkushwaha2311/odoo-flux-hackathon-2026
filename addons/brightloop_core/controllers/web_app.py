@@ -105,24 +105,44 @@ class BrightloopWebAppController(http.Controller):
 
             <div class="features-grid">
                 <div class="card feature-card">
-                    <div class="feature-icon">🔄</div>
-                    <h3 class="feature-title">Multi-Frequency Plan Engine</h3>
-                    <p class="feature-desc">Native support for Daily, Weekly, Monthly, Quarterly, and Annual billing intervals with strict calendar normalization and leap-year compliance.</p>
+                    <div class="feature-card-media">
+                        <img src="/brightloop_core/static/src/img/plan_engine.svg" alt="Multi-Frequency Plan Engine" class="feature-illustration" loading="lazy">
+                    </div>
+                    <div class="feature-card-body">
+                        <div class="feature-tag">Lifecycle Architecture</div>
+                        <h3 class="feature-title">Multi-Frequency Plan Engine</h3>
+                        <p class="feature-desc">Native support for Daily, Weekly, Monthly, Quarterly, and Annual billing intervals with strict calendar normalization and leap-year compliance.</p>
+                    </div>
                 </div>
                 <div class="card feature-card">
-                    <div class="feature-icon">💳</div>
-                    <h3 class="feature-title">Zero-Loss Payment Reconciliation</h3>
-                    <p class="feature-desc">Automated partial settlements, multi-invoice allocations, and idempotent payment orchestration directly into bank journals.</p>
+                    <div class="feature-card-media">
+                        <img src="/brightloop_core/static/src/img/payment_reconciliation.svg" alt="Zero-Loss Payment Reconciliation" class="feature-illustration" loading="lazy">
+                    </div>
+                    <div class="feature-card-body">
+                        <div class="feature-tag">Orchestration &amp; Journals</div>
+                        <h3 class="feature-title">Zero-Loss Payment Reconciliation</h3>
+                        <p class="feature-desc">Automated partial settlements, multi-invoice allocations, and idempotent payment orchestration directly into bank journals.</p>
+                    </div>
                 </div>
                 <div class="card feature-card">
-                    <div class="feature-icon">📊</div>
-                    <h3 class="feature-title">Financial Analytics & MRR</h3>
-                    <p class="feature-desc">Live MRR, ARR, AR aging buckets, and cohort revenue trends powered by strict database aggregation without external analytics SaaS.</p>
+                    <div class="feature-card-media">
+                        <img src="/brightloop_core/static/src/img/financial_analytics.svg" alt="Financial Analytics &amp; MRR" class="feature-illustration" loading="lazy">
+                    </div>
+                    <div class="feature-card-body">
+                        <div class="feature-tag">Intelligence &amp; Cohorts</div>
+                        <h3 class="feature-title">Financial Analytics &amp; MRR</h3>
+                        <p class="feature-desc">Live MRR, ARR, AR aging buckets, and cohort revenue trends powered by strict database aggregation without external analytics SaaS.</p>
+                    </div>
                 </div>
                 <div class="card feature-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h3 class="feature-title">Customer Self-Service Portal</h3>
-                    <p class="feature-desc">Multi-tenant customer portal isolated strictly to commercial partner entities with real-time lifecycle actions and PDF receipt downloads.</p>
+                    <div class="feature-card-media">
+                        <img src="/brightloop_core/static/src/img/customer_portal.svg" alt="Customer Self-Service Portal" class="feature-illustration" loading="lazy">
+                    </div>
+                    <div class="feature-card-body">
+                        <div class="feature-tag">Customer Experience</div>
+                        <h3 class="feature-title">Customer Self-Service Portal</h3>
+                        <p class="feature-desc">Multi-tenant customer portal isolated strictly to commercial partner entities with real-time lifecycle actions and PDF receipt downloads.</p>
+                    </div>
                 </div>
             </div>
         </section>

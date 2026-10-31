@@ -376,3 +376,22 @@ class TestFrontendExperience(HttpCase):
         res_app = self.url_open('/brightloop_core/static/src/js/brightloop_app.js')
         self.assertEqual(res_app.status_code, 200)
         self.assertIn('BrightloopApp', res_app.text)
+
+    def test_20_capability_card_illustrations_render(self):
+        """Landing page includes all 4 capability card SVG illustrations with 200 OK."""
+        res_landing = self.url_open('/')
+        self.assertEqual(res_landing.status_code, 200)
+        content = res_landing.text
+
+        # Verify all 4 illustrations are referenced in HTML
+        svg_assets = [
+            'plan_engine.svg',
+            'payment_reconciliation.svg',
+            'financial_analytics.svg',
+            'customer_portal.svg',
+        ]
+        for asset in svg_assets:
+            self.assertIn(asset, content)
+            res_svg = self.url_open(f'/brightloop_core/static/src/img/{asset}')
+            self.assertEqual(res_svg.status_code, 200)
+            self.assertIn('<svg', res_svg.text)

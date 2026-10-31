@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 180" fill="none">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0" y1="0" x2="360" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F4F8F5"/>
+      <stop offset="100%" stop-color="#E8F1EC"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1F3A27"/>
+      <stop offset="100%" stop-color="#0F1D14"/>
+    </linearGradient>
+    <linearGradient id="goldGrad2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F2D788"/>
+      <stop offset="100%" stop-color="#D4AF37"/>
+    </linearGradient>
+    <filter id="shadow2" x="-10%" y="-10%" width="125%" height="130%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0F1D14" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="360" height="180" rx="14" fill="url(#bgGrad2)"/>
+  <circle cx="50" cy="40" r="50" fill="#E2EDE6" opacity="0.6"/>
+  <circle cx="310" cy="140" r="45" fill="#DCEAE1" opacity="0.5"/>
+
+  <!-- Left: Payment Source Card -->
+  <g filter="url(#shadow2)">
+    <rect x="28" y="28" width="130" height="124" rx="12" fill="url(#cardGrad)" stroke="#2D7A4F" stroke-width="1.2"/>
+    <!-- Card Chip / Brand -->
+    <rect x="42" y="44" width="22" height="16" rx="3" fill="url(#goldGrad2)"/>
+    <line x1="42" y1="52" x2="64" y2="52" stroke="#172B1E" stroke-width="0.8"/>
+    <circle cx="134" cy="52" r="10" fill="#2D7A4F" opacity="0.5"/>
+    <circle cx="142" cy="52" r="10" fill="#D4AF37" opacity="0.5"/>
+
+    <text x="42" y="82" font-family="-apple-system, Inter, sans-serif" font-size="9" font-weight="600" fill="#829B83" letter-spacing="1">PAYMENT INBOUND</text>
+    <text x="42" y="104" font-family="-apple-system, Inter, sans-serif" font-size="16" font-weight="800" fill="#FDFCFA" letter-spacing="-0.02em">$3,500.00</text>
+    
+    <rect x="42" y="118" width="76" height="18" rx="9" fill="#172B1E" stroke="#2D7A4F" stroke-width="0.8"/>
+    <circle cx="51" cy="127" r="3" fill="#27845C"/>
+    <text x="59" y="130" font-family="-apple-system, Inter, sans-serif" font-size="8" font-weight="700" fill="#E7F3ED">Bank Journal</text>
+  </g>
+
+  <!-- Center: Dynamic Allocation Connectors -->
+  <g stroke="#2D7A4F" stroke-width="2" stroke-linecap="round">
+    <!-- To Invoice 1 -->
+    <path d="M 158 72 C 178 72, 185 54, 205 54" stroke-dasharray="3 3"/>
+    <!-- To Invoice 2 -->
+    <path d="M 158 108 C 178 108, 185 126, 205 126" stroke-dasharray="3 3"/>
+  </g>
+
+  <!-- Central Sync Badge -->
+  <g filter="url(#shadow2)">
+    <circle cx="182" cy="90" r="16" fill="#FFFFFF" stroke="#2D7A4F" stroke-width="1.5"/>
+    <path d="M 176 90 L 180 94 L 189 85" fill="none" stroke="#27845C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Right: Invoices Split & Reconciled -->
+  <!-- Target Invoice 1 -->
+  <g filter="url(#shadow2)">
+    <rect x="206" y="24" width="126" height="58" rx="8" fill="#FFFFFF" stroke="#E1EBE4" stroke-width="1.2"/>
+    <text x="218" y="42" font-family="-apple-system, Inter, sans-serif" font-size="10" font-weight="700" fill="#172B1E">INV-2026-001</text>
+    <rect x="290" y="32" width="34" height="14" rx="7" fill="#E7F3ED"/>
+    <text x="307" y="42" font-family="-apple-system, Inter, sans-serif" font-size="8" font-weight="700" fill="#27845C" text-anchor="middle">PAID</text>
+    
+    <text x="218" y="58" font-family="-apple-system, Inter, sans-serif" font-size="9" color="#7E8C82" fill="#7E8C82">Allocated:</text>
+    <text x="264" y="58" font-family="-apple-system, Inter, sans-serif" font-size="10" font-weight="700" fill="#27845C">$2,000.00</text>
+    <line x1="218" y1="68" x2="320" y2="68" stroke="#E8F1EC" stroke-width="3" stroke-linecap="round"/>
+    <line x1="218" y1="68" x2="320" y2="68" stroke="#27845C" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- Target Invoice 2 -->
+  <g filter="url(#shadow2)">
+    <rect x="206" y="96" width="126" height="58" rx="8" fill="#FFFFFF" stroke="#E1EBE4" stroke-width="1.2"/>
+    <text x="218" y="114" font-family="-apple-system, Inter, sans-serif" font-size="10" font-weight="700" fill="#172B1E">INV-2026-002</text>
+    <rect x="290" y="104" width="34" height="14" rx="7" fill="#E7F3ED"/>
+    <text x="307" y="114" font-family="-apple-system, Inter, sans-serif" font-size="8" font-weight="700" fill="#27845C" text-anchor="middle">PAID</text>
+    
+    <text x="218" y="130" font-family="-apple-system, Inter, sans-serif" font-size="9" color="#7E8C82" fill="#7E8C82">Allocated:</text>
+    <text x="264" y="130" font-family="-apple-system, Inter, sans-serif" font-size="10" font-weight="700" fill="#27845C">$1,500.00</text>
+    <line x1="218" y1="140" x2="320" y2="140" stroke="#E8F1EC" stroke-width="3" stroke-linecap="round"/>
+    <line x1="218" y1="140" x2="320" y2="140" stroke="#27845C" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

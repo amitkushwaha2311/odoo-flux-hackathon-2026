@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 180" fill="none">
+  <defs>
+    <linearGradient id="bgGrad1" x1="0" y1="0" x2="360" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F4F8F5"/>
+      <stop offset="100%" stop-color="#E8F1EC"/>
+    </linearGradient>
+    <linearGradient id="sageGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2D7A4F"/>
+      <stop offset="100%" stop-color="#1F3A27"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E5C775"/>
+      <stop offset="100%" stop-color="#D4AF37"/>
+    </linearGradient>
+    <filter id="shadow1" x="-10%" y="-10%" width="125%" height="130%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0F1D14" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="360" height="180" rx="14" fill="url(#bgGrad1)"/>
+  <circle cx="310" cy="35" r="55" fill="#DCEAE1" opacity="0.6"/>
+  <circle cx="45" cy="145" r="40" fill="#E2EDE6" opacity="0.5"/>
+
+  <!-- Subtle Calendar Grid Pattern -->
+  <g opacity="0.25" stroke="#2D7A4F" stroke-width="0.75" stroke-dasharray="3 3">
+    <line x1="20" y1="45" x2="340" y2="45"/>
+    <line x1="20" y1="90" x2="340" y2="90"/>
+    <line x1="20" y1="135" x2="340" y2="135"/>
+  </g>
+
+  <!-- Calendar Container Card -->
+  <g filter="url(#shadow1)">
+    <rect x="36" y="22" width="168" height="136" rx="10" fill="#FFFFFF" stroke="#E1EBE4" stroke-width="1.5"/>
+    <!-- Calendar Header -->
+    <path d="M36 32 C36 26.477 40.477 22 46 22 H194 C199.523 22 204 26.477 204 32 V46 H36 V32 Z" fill="url(#sageGrad)"/>
+    <circle cx="56" cy="34" r="3" fill="#D4AF37"/>
+    <circle cx="68" cy="34" r="3" fill="#FFFFFF" opacity="0.8"/>
+    <circle cx="80" cy="34" r="3" fill="#FFFFFF" opacity="0.8"/>
+    <text x="145" y="38" font-family="-apple-system, Inter, sans-serif" font-size="10" font-weight="700" fill="#FDFCFA" text-anchor="middle" letter-spacing="0.5">OCTOBER 2026</text>
+
+    <!-- Calendar Day Grid Cells -->
+    <rect x="48" y="58" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="72" y="58" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="96" y="58" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="120" y="58" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="144" y="58" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="168" y="58" width="18" height="14" rx="3" fill="#F4F7F5"/>
+
+    <rect x="48" y="78" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="72" y="78" width="18" height="14" rx="3" fill="#2D7A4F"/>
+    <text x="81" y="89" font-family="-apple-system, Inter, sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" text-anchor="middle">12</text>
+    <rect x="96" y="78" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="120" y="78" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="144" y="78" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="168" y="78" width="18" height="14" rx="3" fill="#F4F7F5"/>
+
+    <rect x="48" y="98" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="72" y="98" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="96" y="98" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="120" y="98" width="18" height="14" rx="3" fill="#D4AF37"/>
+    <text x="129" y="109" font-family="-apple-system, Inter, sans-serif" font-size="9" font-weight="700" fill="#172B1E" text-anchor="middle">24</text>
+    <rect x="144" y="98" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="168" y="98" width="18" height="14" rx="3" fill="#F4F7F5"/>
+
+    <rect x="48" y="118" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="72" y="118" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="96" y="118" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="120" y="118" width="18" height="14" rx="3" fill="#F4F7F5"/>
+    <rect x="144" y="118" width="18" height="14" rx="3" fill="#2D7A4F"/>
+    <text x="153" y="129" font-family="-apple-system, Inter, sans-serif" font-size="9" font-weight="700" fill="#FFFFFF" text-anchor="middle">31</text>
+    <rect x="168" y="118" width="18" height="14" rx="3" fill="#F4F7F5"/>
+
+    <!-- Bottom Status Strip -->
+    <rect x="48" y="140" width="138" height="8" rx="4" fill="#E8F1EC"/>
+    <rect x="48" y="140" width="92" height="8" rx="4" fill="#2D7A4F"/>
+  </g>
+
+  <!-- Frequency Selector Pills & Orbit Loop (Right Side) -->
+  <g filter="url(#shadow1)">
+    <!-- Monthly Pill (Active) -->
+    <rect x="220" y="32" width="108" height="30" rx="15" fill="#FFFFFF" stroke="#2D7A4F" stroke-width="1.5"/>
+    <circle cx="235" cy="47" r="5" fill="#2D7A4F"/>
+    <text x="248" y="51" font-family="-apple-system, Inter, sans-serif" font-size="11" font-weight="700" fill="#172B1E">Monthly</text>
+    <rect x="296" y="40" width="22" height="14" rx="7" fill="#E7F3ED"/>
+    <text x="307" y="50" font-family="-apple-system, Inter, sans-serif" font-size="8" font-weight="700" fill="#27845C" text-anchor="middle">1M</text>
+
+    <!-- Quarterly Pill -->
+    <rect x="220" y="70" width="108" height="30" rx="15" fill="#FFFFFF" stroke="#E1EBE4" stroke-width="1.2"/>
+    <circle cx="235" cy="85" r="4" fill="#C5D9CC"/>
+    <text x="248" y="89" font-family="-apple-system, Inter, sans-serif" font-size="11" font-weight="600" fill="#4A564E">Quarterly</text>
+    <rect x="296" y="78" width="22" height="14" rx="7" fill="#F4F7F5"/>
+    <text x="307" y="88" font-family="-apple-system, Inter, sans-serif" font-size="8" font-weight="600" fill="#7E8C82" text-anchor="middle">3M</text>
+
+    <!-- Annual Pill -->
+    <rect x="220" y="108" width="108" height="30" rx="15" fill="#FFFFFF" stroke="#E1EBE4" stroke-width="1.2"/>
+    <circle cx="235" cy="123" r="4" fill="#C5D9CC"/>
+    <text x="248" y="127" font-family="-apple-system, Inter, sans-serif" font-size="11" font-weight="600" fill="#4A564E">Annual</text>
+    <rect x="294" y="116" width="26" height="14" rx="7" fill="#FCF4E8"/>
+    <text x="307" y="126" font-family="-apple-system, Inter, sans-serif" font-size="8" font-weight="700" fill="#C68A37" text-anchor="middle">-15%</text>
+  </g>
+
+  <!-- Circular Recurrence Arrow Linking Cards -->
+  <path d="M 190 70 C 215 50, 215 95, 195 105" fill="none" stroke="url(#goldGrad)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 2"/>
+  <polygon points="190,105 198,101 197,109" fill="#D4AF37"/>
+</svg>
