@@ -27,4 +27,5 @@ from . import account_payment
 from . import billing_service
 from . import payment_service
 from . import portal_service
+from . import analytics_service
 from . import subscription

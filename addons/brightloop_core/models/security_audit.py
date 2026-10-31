@@ -134,6 +134,10 @@ class BrightloopSecurityAudit(models.Model):
             ('portal_invoice_viewed', 'Portal Invoice Viewed'),
             ('portal_invoice_document_downloaded', 'Portal Invoice Document Downloaded'),
             ('portal_unauthorized_access_attempt', 'Portal Unauthorized Access Attempt'),
+            # ---- Phase 11: Finance Dashboard & Analytics Events ----
+            ('analytics_kpi_viewed', 'Finance KPIs Viewed'),
+            ('analytics_report_generated', 'Financial Report Generated'),
+            ('analytics_unauthorized_access', 'Unauthorized Analytics Access Attempt'),
         ],
         string='Event Type',
         required=True,
